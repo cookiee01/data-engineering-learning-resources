@@ -17,6 +17,11 @@ The format is based on Keep a Changelog, and this repo follows date-based entrie
 ---
 ## [2026-02-07]
 ### Added
+- Added system design resources notes with karanpratapsingh link
+- Added foundations progress log with networking playlist progress
+
+## [2026-02-07]
+### Added
 - Added PySpark notes file with cheat sheet link
 - Added foundations folder and networking notes
 
