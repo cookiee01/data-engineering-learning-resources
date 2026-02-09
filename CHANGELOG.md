@@ -6,6 +6,7 @@ The format is based on Keep a Changelog.
 
 ## [Unreleased]
 ### Added
+- Added Hive-on-Tez reducer count tuning notes under EMR
 - Added EMR/Hadoop notes link: Hadoop splits vs blocks article (Jerome Rajan)
 
 ### Changed
