@@ -8,17 +8,17 @@ The format is based on Keep a Changelog.
 ### Added
 - Added practice dataset `apache-spark-pyspark/data/orders_extended.csv` for ranking/windows examples
 - Expanded PySpark Q&A journey with deeper coverage of aggregations and window functions (dense_rank, row_number)
-- Simplified PySpark layout by moving modules/code into `apache-spark-pyspark/legacy/`
 - Added PySpark Q&A journey doc with tasks + code in one place
 - Added structured PySpark practice track (modules, runnable scripts, sample data)
 - Added Hive-on-Tez reducer count tuning notes under EMR
 - Added EMR/Hadoop notes link: Hadoop splits vs blocks article (Jerome Rajan)
+ - Consolidated PySpark practice around `apache-spark-pyspark/PYSPARK_QA_JOURNEY.md` as the primary path
 
 ### Changed
 - N/A
 
 ### Removed
-- N/A
+- Removed `apache-spark-pyspark/legacy/` to keep only the latest required PySpark track
 
 ---
 
@@ -41,4 +41,3 @@ The format is based on Keep a Changelog.
 - Added foundations progress log with networking playlist progress
 - Added system design resources notes (including karanpratapsingh/system-design)
 - Added AWS-focused caching system design note
-
