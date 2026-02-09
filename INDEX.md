@@ -30,3 +30,5 @@ This is the navigation hub for the repo.
 If you add new notes/resources, please also:
 - link them from this `INDEX.md` when it helps discoverability
 - record the addition in `CHANGELOG.md`
+
+- Spark / PySpark (practice track): 

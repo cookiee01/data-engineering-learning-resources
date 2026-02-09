@@ -1,0 +1,12 @@
+<items>
+  <item>
+    <id>1</id>
+    <name>keyboard</name>
+    <price>49.99</price>
+  </item>
+  <item>
+    <id>2</id>
+    <name>mouse</name>
+    <price>19.99</price>
+  </item>
+</items>
