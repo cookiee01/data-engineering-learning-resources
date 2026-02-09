@@ -6,7 +6,7 @@ The format is based on Keep a Changelog.
 
 ## [Unreleased]
 ### Added
-- N/A
+- Added EMR/Hadoop notes link: Hadoop splits vs blocks article (Jerome Rajan)
 
 ### Changed
 - N/A
