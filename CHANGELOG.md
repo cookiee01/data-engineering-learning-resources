@@ -6,6 +6,7 @@ The format is based on Keep a Changelog, and this repo follows date-based entrie
 
 ## [Unreleased]
 ### Added
+- Added AWS-focused caching system design note
 - Initial repository structure with topic folders
 
 ### Changed
