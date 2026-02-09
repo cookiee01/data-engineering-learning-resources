@@ -1,0 +1,3 @@
+id,payload
+1,"{\"order_id\": 1, \"items\": [{\"sku\": \"k\", \"qty\": 1}, {\"sku\": \"m\", \"qty\": 2}], \"meta\": {\"source\": \"web\"}}"
+2,"{\"order_id\": 2, \"items\": [{\"sku\": \"c\", \"qty\": 3}], \"meta\": {\"source\": \"app\"}}"

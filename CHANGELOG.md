@@ -6,6 +6,7 @@ The format is based on Keep a Changelog.
 
 ## [Unreleased]
 ### Added
+- Expanded PySpark Q&A journey with thorough sections on schema drift, timestamps/timezones, conditional aggs, pivot, from_json+explode, sessionization, broadcast joins, skew joins, partition pruning, and JDBC reads
 - Added practice dataset `apache-spark-pyspark/data/orders_extended.csv` for ranking/windows examples
 - Expanded PySpark Q&A journey with deeper coverage of aggregations and window functions (dense_rank, row_number)
 - Added PySpark Q&A journey doc with tasks + code in one place
