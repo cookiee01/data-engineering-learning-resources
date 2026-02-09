@@ -1,13 +1,12 @@
 # Changelog
 
-All notable changes to this learning repository will be documented here.
+All notable changes to this learning repository are documented here.
 
-The format is based on Keep a Changelog, and this repo follows date-based entries.
+The format is based on Keep a Changelog.
 
 ## [Unreleased]
 ### Added
-- Added AWS-focused caching system design note
-- Initial repository structure with topic folders
+- N/A
 
 ### Changed
 - N/A
@@ -16,17 +15,24 @@ The format is based on Keep a Changelog, and this repo follows date-based entrie
 - N/A
 
 ---
-## [2026-02-07]
+
+## [2026-02-09]
 ### Added
-- Added system design resources notes with karanpratapsingh link
-- Added foundations progress log with networking playlist progress
+- Added `INDEX.md` as a repo navigation hub (includes DataEngineering.wiki learning resources link)
+- Added `CONTRIBUTING.md` to keep notes trainee-friendly but staff-complete
+
+### Changed
+- Improved `README.md` to help new contributors navigate the repo
+- Expanded `.gitignore` to cover common OS/Python files
+
+---
 
 ## [2026-02-07]
 ### Added
-- Added PySpark notes file with cheat sheet link
+- Repository initialized with topic folders and `README.md`
+- Added PySpark notes with cheat sheet link
 - Added foundations folder and networking notes
-
-## [2026-02-07]
-### Added
-- Repository initialized with topic folders and README
+- Added foundations progress log with networking playlist progress
+- Added system design resources notes (including karanpratapsingh/system-design)
+- Added AWS-focused caching system design note
 

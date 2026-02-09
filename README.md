@@ -1,3 +1,30 @@
 # Data Engineering Learning Resources
 
-Curated learning notes and resources by topic.
+A curated, notes-first repository for learning and interview preparation.
+
+This repo is intentionally organized to help you (and other developers) find the *best* material quickly without drowning in documentation.
+
+## How To Navigate
+- Start at `INDEX.md` for the table of contents.
+- Each topic folder contains short, trainee-friendly notes and links.
+- Use `CHANGELOG.md` to see what changed recently.
+
+## Repo Structure
+- `apache-flink/`
+- `apache-spark-pyspark/`
+- `apache-kafka/`
+- `apache-iceberg/`
+- `aws-glue/`
+- `athena/`
+- `redshift/`
+- `emr/`
+- `python/`
+- `data-structures-and-algorithms/`
+- `foundations/` (networking, OS, distributed systems fundamentals)
+- `system-design/`
+
+## Contributing
+See `CONTRIBUTING.md` for:
+- how to add resources/notes
+- how to keep notes “trainee-friendly but staff-complete”
+- how to update the changelog
