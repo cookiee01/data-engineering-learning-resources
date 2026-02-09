@@ -1,12 +1,11 @@
 # PySpark Practice Journey (Q&A + Tasks + Code)
 
-This is the **primary** PySpark practice track.
+This is a structured PySpark practice path designed to feel like a guided lesson.
 
-Style:
-- Each section is a **question** you should be able to answer in an interview.
-- Then a **task** you run locally.
-- Then the **exact code** (copy/paste runnable).
-- Then **expected output** + **gotchas**.
+Rules of this document:
+- Every section is in **Q&A** format.
+- You always get: **Task → Code → Expected output → Gotchas**.
+- Prefer Spark built-ins. Avoid UDFs unless required.
 
 ## Setup (one-time)
 From:
@@ -18,25 +17,27 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-## Practice Data
-We use these small local files:
-- `data/orders.csv`
-- `data/users.json`
-- `data/events_multiline.json`
-- `data/items.xml` (XML demo)
+## Data used
+- `data/orders.csv` (small)
+- `data/orders_extended.csv` (for ranking/windows/ties)
+- `data/users.json` (nested JSON)
+- `data/events_multiline.json` (multiline JSON array)
+- `data/items.xml` (XML demo; requires extra package)
 
 ---
 
-## Q1) What is Spark actually doing when I write DataFrame code?
+# Part A — Reading Data (CSV / JSON / Parquet / XML / JDBC)
+
+## Q1) What is Spark doing when I write DataFrame code?
 **Answer (mental model)**
-- Most DataFrame operations are **transformations**: they build a *plan* (lazy).
-- Spark only runs work when you call an **action** (`count`, `collect`, `write`, etc.).
+- Transformations build a plan (lazy).
+- Actions execute the plan.
 
 **Task**
-- Read a CSV.
-- Filter rows.
-- Print `explain()`.
-- Trigger an action.
+- Read CSV.
+- Filter.
+- `explain()`.
+- Trigger `count()`.
 
 **Code**
 ```python
@@ -64,18 +65,14 @@ print(delivered.count())
 spark.stop()
 ```
 
-**Expected output**
-- `explain()` prints logical + physical plans.
-- `count()` prints an integer.
-
 **Gotchas**
-- `collect()` pulls data to the driver; avoid on large datasets.
+- `collect()` brings all rows to the driver.
 
 ---
 
-## Q2) How do I read CSV reliably (without schema surprises)?
+## Q2) How do I read CSV reliably (schema + corrupt rows)?
 **Answer**
-- CSV is untyped. In production, prefer explicit schema.
+CSV is untyped. Prefer explicit schema and a corrupt-record strategy.
 
 **Task**
 - Read CSV with explicit schema.
@@ -111,26 +108,26 @@ spark.stop()
 ```
 
 **Gotchas**
-- `inferSchema=True` is convenient but can mis-infer dates/ints.
-- Use `mode=FAILFAST` when you want ingestion to fail on corrupt rows.
+- `inferSchema=True` can misread columns (especially timestamps).
+- In production, set `mode=FAILFAST` when you want ingestion to stop on bad lines.
 
 ---
 
 ## Q3) How do I read JSONL and flatten nested JSON?
 **Answer**
-- Spark reads JSONL naturally (one JSON per line).
-- Use dotted paths (`col("user.id")`) to flatten.
+- JSONL is easiest: one JSON object per line.
+- Flatten nested fields using dotted paths.
 
 **Task**
-- Read `data/users.json`.
-- Flatten nested fields.
+- Read `users.json`.
+- Flatten fields.
 
 **Code**
 ```python
 from pyspark.sql import SparkSession
 from pyspark.sql.functions import col
 
-spark = SparkSession.builder.appName("q3_read_json_nested").master("local[*]").getOrCreate()
+spark = SparkSession.builder.appName("q3_json_nested").master("local[*]").getOrCreate()
 
 df = spark.read.json("data/users.json")
 
@@ -146,17 +143,14 @@ flat.show(truncate=False)
 spark.stop()
 ```
 
-**Gotchas**
-- If JSON has evolving schema, Spark may set fields to null for missing keys.
-
 ---
 
 ## Q4) How do I read multiline JSON (a JSON array file)?
 **Answer**
-- Use `option("multiLine", "true")`.
+Use `multiLine=True`.
 
 **Task**
-- Read `data/events_multiline.json`.
+- Read `events_multiline.json`.
 
 **Code**
 ```python
@@ -174,12 +168,77 @@ spark.stop()
 
 ---
 
-## Q5) What are the core DataFrame operations I must be fluent in?
+## Q5) How do I write Parquet and read it back (and why Parquet)?
+**Answer**
+Parquet is columnar, typed, and typically faster/cheaper for analytics.
+
+**Task**
+- Write Parquet.
+- Read back.
+
+**Code**
+```python
+import shutil
+from pathlib import Path
+
+from pyspark.sql import SparkSession
+
+spark = SparkSession.builder.appName("q5_parquet_write_read").master("local[*]").getOrCreate()
+
+df = spark.read.csv("data/orders.csv", header=True, inferSchema=True)
+
+out = Path("output/orders_parquet")
+if out.exists():
+    shutil.rmtree(out)
+
+df.write.mode("overwrite").parquet(str(out))
+
+back = spark.read.parquet(str(out))
+back.printSchema()
+back.show(truncate=False)
+
+spark.stop()
+```
+
+---
+
+## Q6) How do I read XML in Spark?
+**Answer**
+Spark doesn’t support XML by default. You commonly use `spark-xml`.
+
+**Task**
+- Read `items.xml` with spark-xml.
+
+**Code**
+```python
+from pyspark.sql import SparkSession
+
+spark = (
+    SparkSession.builder.appName("q6_xml")
+    .master("local[*]")
+    .config("spark.jars.packages", "com.databricks:spark-xml_2.12:0.17.0")
+    .config("spark.ui.showConsoleProgress", "false")
+    .getOrCreate()
+)
+
+df = spark.read.format("xml").option("rowTag", "item").load("data/items.xml")
+df.show(truncate=False)
+
+spark.stop()
+```
+
+**Gotchas**
+- Package download requires network access and can be flaky behind proxies.
+
+---
+
+# Part B — Core Operations (select/filter/withColumn/nulls)
+
+## Q7) What are the core DataFrame operations I must be fluent in?
 **Answer**
 You should be fast with:
-- `select`, `withColumn`, `filter`
-- `when`, `cast`
-- null handling: `coalesce`, `na.fill`, `na.drop`
+- `select`, `withColumn`, `filter`, `when`, `cast`
+- null handling (`coalesce`, `na.fill`, `na.drop`)
 
 **Task**
 - Normalize status.
@@ -190,7 +249,7 @@ You should be fast with:
 from pyspark.sql import SparkSession
 from pyspark.sql.functions import col, when, lit, coalesce
 
-spark = SparkSession.builder.appName("q5_core_ops").master("local[*]").getOrCreate()
+spark = SparkSession.builder.appName("q7_core_ops").master("local[*]").getOrCreate()
 
 df = spark.read.csv("data/orders.csv", header=True, inferSchema=True)
 
@@ -208,26 +267,128 @@ out = (
 )
 
 out.show(truncate=False)
+
 spark.stop()
 ```
 
 ---
 
-## Q6) Why are joins dangerous in Spark?
+# Part C — Aggregations (sum/avg/count) + Ranking/Windows
+
+## Q8) How do I compute sum/avg/count per group?
 **Answer**
-Because duplicates can multiply rows ("join explosion").
+Use `groupBy(...).agg(...)`.
 
 **Task**
-- Join orders with users.
+Compute per-country metrics.
+
+**Code**
+```python
+from pyspark.sql import SparkSession
+from pyspark.sql.functions import col, sum as _sum, avg as _avg, count as _count
+
+spark = SparkSession.builder.appName("q8_aggs")
+  .master("local[*]")
+  .getOrCreate()
+
+orders = spark.read.csv("data/orders_extended.csv", header=True, inferSchema=True)
+
+by_country = (
+    orders.groupBy("country")
+          .agg(
+              _count("order_id").alias("orders"),
+              _sum("amount").alias("total_amount"),
+              _avg("amount").alias("avg_amount"),
+          )
+          .orderBy(col("total_amount").desc())
+)
+
+by_country.show(truncate=False)
+
+spark.stop()
+```
+
+**Gotchas**
+- Aggregations create shuffles.
+
+---
+
+## Q9) How do I rank things using dense_rank (and why dense_rank vs rank)?
+**Answer**
+- `rank()` leaves gaps when there are ties.
+- `dense_rank()` does not leave gaps.
+
+**Task**
+Rank customers by total spend within each country.
+
+**Code**
+```python
+from pyspark.sql import SparkSession, Window
+from pyspark.sql.functions import col, sum as _sum, dense_rank
+
+spark = SparkSession.builder.appName("q9_dense_rank").master("local[*]").getOrCreate()
+
+orders = spark.read.csv("data/orders_extended.csv", header=True, inferSchema=True)
+
+spend = orders.groupBy("country", "customer_id").agg(_sum("amount").alias("total_spend"))
+
+w = Window.partitionBy("country").orderBy(col("total_spend").desc())
+ranked = spend.withColumn("dense_rank", dense_rank().over(w)).orderBy("country", "dense_rank")
+
+ranked.show(truncate=False)
+
+spark.stop()
+```
+
+**Expected output**
+- You should see ties share the same `dense_rank`.
+
+---
+
+## Q10) How do I do “keep latest record per key” correctly?
+**Answer**
+Use window + `row_number()`.
+
+**Task**
+Keep the latest order per customer.
+
+**Code**
+```python
+from pyspark.sql import SparkSession, Window
+from pyspark.sql.functions import col, row_number
+
+spark = SparkSession.builder.appName("q10_latest_per_key").master("local[*]").getOrCreate()
+
+orders = spark.read.csv("data/orders_extended.csv", header=True, inferSchema=True)
+
+w = Window.partitionBy("customer_id").orderBy(col("order_ts").desc())
+latest = orders.withColumn("rn", row_number().over(w)).filter(col("rn") == 1).drop("rn")
+
+latest.orderBy("customer_id").show(truncate=False)
+
+spark.stop()
+```
+
+---
+
+# Part D — Joins
+
+## Q11) Why are joins dangerous in Spark and how do I avoid surprises?
+**Answer**
+- If join keys aren’t unique, outputs multiply.
+- Large joins shuffle; small dimension can be broadcast.
+
+**Task**
+Join orders with users.
 
 **Code**
 ```python
 from pyspark.sql import SparkSession
 from pyspark.sql.functions import col
 
-spark = SparkSession.builder.appName("q6_joins").master("local[*]").getOrCreate()
+spark = SparkSession.builder.appName("q11_joins").master("local[*]").getOrCreate()
 
-orders = spark.read.csv("data/orders.csv", header=True, inferSchema=True)
+orders = spark.read.csv("data/orders_extended.csv", header=True, inferSchema=True)
 users = spark.read.json("data/users.json").select(
     col("user.id").alias("customer_id"),
     col("user.name").alias("name"),
@@ -235,56 +396,22 @@ users = spark.read.json("data/users.json").select(
 )
 
 joined = orders.join(users, on="customer_id", how="left")
-joined.show(truncate=False)
-
-spark.stop()
-```
-
-**Gotchas**
-- If either side has duplicates on the join key, output rows multiply.
-
----
-
-## Q7) How do I do aggregations and window functions?
-**Answer**
-- Aggregations: `groupBy().agg(...)`
-- Windows: define partition + ordering, then compute per-row metrics.
-
-**Task**
-- Per-customer order count + total amount.
-- Keep latest order per customer.
-
-**Code**
-```python
-from pyspark.sql import SparkSession, Window
-from pyspark.sql.functions import col, sum as _sum, count as _count, row_number
-
-spark = SparkSession.builder.appName("q7_aggs_windows").master("local[*]").getOrCreate()
-
-orders = spark.read.csv("data/orders.csv", header=True, inferSchema=True)
-
-agg = orders.groupBy("customer_id").agg(
-    _count("order_id").alias("orders"),
-    _sum("amount").alias("total_amount"),
-)
-agg.show(truncate=False)
-
-w = Window.partitionBy("customer_id").orderBy(col("order_ts").desc())
-latest = orders.withColumn("rn", row_number().over(w)).filter(col("rn") == 1).drop("rn")
-latest.show(truncate=False)
+joined.select("order_id", "customer_id", "name", "tier", "amount", "country").show(truncate=False)
 
 spark.stop()
 ```
 
 ---
 
-## Q8) How should I write data (and avoid the small files problem)?
+# Part E — Writing + Performance Basics
+
+## Q12) How do I write outputs in an idempotent way for practice?
 **Answer**
-- For practice, `mode("overwrite")` gives idempotent runs.
-- For tiny outputs, `coalesce(1)` can reduce file count.
+- Use deterministic output paths.
+- Use `mode("overwrite")` for practice.
 
 **Task**
-- Write a curated Parquet output.
+Write curated orders excluding cancelled.
 
 **Code**
 ```python
@@ -294,61 +421,50 @@ from pathlib import Path
 from pyspark.sql import SparkSession
 from pyspark.sql.functions import col
 
-spark = SparkSession.builder.appName("q8_write").master("local[*]").getOrCreate()
+spark = SparkSession.builder.appName("q12_write_idempotent").master("local[*]").getOrCreate()
 
-df = spark.read.csv("data/orders.csv", header=True, inferSchema=True)
-curated = df.filter(col("status") != "CANCELLED")
+orders = spark.read.csv("data/orders_extended.csv", header=True, inferSchema=True)
+curated = orders.filter(col("status") != "CANCELLED")
 
-out_dir = Path("output/orders_curated")
-if out_dir.exists():
-    shutil.rmtree(out_dir)
+out = Path("output/orders_curated")
+if out.exists():
+    shutil.rmtree(out)
 
-curated.write.mode("overwrite").parquet(str(out_dir))
-
-out_dir2 = Path("output/orders_curated_single_file")
-if out_dir2.exists():
-    shutil.rmtree(out_dir2)
-
-curated.coalesce(1).write.mode("overwrite").parquet(str(out_dir2))
-
-print("Wrote", out_dir)
-print("Wrote", out_dir2)
+curated.write.mode("overwrite").parquet(str(out))
+print("Wrote", out)
 
 spark.stop()
 ```
 
-**Gotchas**
-- `coalesce(1)` is NOT for big data; it creates one task and can bottleneck.
-
 ---
 
-## Q9) What are the 3 performance levers I should mention at interview level?
+## Q13) What are the 3 performance levers I must mention in interviews?
 **Answer**
-1. **Shuffles** (joins/groupBy) are expensive.
-2. **Partitioning** controls parallelism.
-3. **Caching** avoids recomputation when the same DF is reused.
+1. Shuffles are expensive.
+2. Partitioning controls parallelism.
+3. Caching avoids recomputation.
 
 **Task**
 - Inspect partitions.
-- Use `explain()`.
-- Cache and show repeated actions.
+- `explain()` for a shuffle.
+- Cache and run 2 actions.
 
 **Code**
 ```python
 from pyspark.sql import SparkSession
 from pyspark.sql.functions import col
 
-spark = SparkSession.builder.appName("q9_perf").master("local[*]").getOrCreate()
+spark = SparkSession.builder.appName("q13_perf")
+  .master("local[*]")
+  .getOrCreate()
 
-df = spark.read.csv("data/orders.csv", header=True, inferSchema=True)
-print("Default partitions:", df.rdd.getNumPartitions())
+orders = spark.read.csv("data/orders_extended.csv", header=True, inferSchema=True)
+print("Default partitions:", orders.rdd.getNumPartitions())
 
-# shuffle example
-by_country = df.groupBy("country").count()
+by_country = orders.groupBy("country").count()
 by_country.explain(True)
 
-# cache example
-filtered = df.filter(col("status") == "DELIVERED").cache()
+filtered = orders.filter(col("status") == "DELIVERED").cache()
 print("First count:", filtered.count())
 print("Second count:", filtered.count())
 
@@ -357,10 +473,9 @@ spark.stop()
 
 ---
 
-## Optional: XML + JDBC
-XML and JDBC are common in DE work, but they require extra setup.
-
-- XML: use `spark-xml` (external package)
-- JDBC: requires a running database
-
-If you want, we can add dedicated Q&A sections once you’re comfortable with CSV/JSON/Parquet.
+# What we’ll add next (if you want deeper coverage)
+- `explode` for arrays + `from_json` with explicit schema
+- `pivot` + conditional aggregations
+- `join` performance (broadcast hints, skew detection)
+- Timestamp parsing (`to_timestamp`), timezone handling
+- Partition pruning demo (Parquet partitioned reads)

@@ -6,6 +6,9 @@ The format is based on Keep a Changelog.
 
 ## [Unreleased]
 ### Added
+- Added practice dataset `apache-spark-pyspark/data/orders_extended.csv` for ranking/windows examples
+- Expanded PySpark Q&A journey with deeper coverage of aggregations and window functions (dense_rank, row_number)
+- Simplified PySpark layout by moving modules/code into `apache-spark-pyspark/legacy/`
 - Added PySpark Q&A journey doc with tasks + code in one place
 - Added structured PySpark practice track (modules, runnable scripts, sample data)
 - Added Hive-on-Tez reducer count tuning notes under EMR
