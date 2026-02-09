@@ -15,7 +15,7 @@ The format is based on Keep a Changelog.
  - Consolidated PySpark practice around `apache-spark-pyspark/PYSPARK_QA_JOURNEY.md` as the primary path
 
 ### Changed
-- N/A
+- Cleaned up PySpark Q&A journey (removed future-work section; fixed code snippet formatting)
 
 ### Removed
 - Removed `apache-spark-pyspark/legacy/` to keep only the latest required PySpark track

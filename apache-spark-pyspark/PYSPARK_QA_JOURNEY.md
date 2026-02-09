@@ -287,9 +287,11 @@ Compute per-country metrics.
 from pyspark.sql import SparkSession
 from pyspark.sql.functions import col, sum as _sum, avg as _avg, count as _count
 
-spark = SparkSession.builder.appName("q8_aggs")
-  .master("local[*]")
-  .getOrCreate()
+spark = (
+    SparkSession.builder.appName("q8_aggs")
+    .master("local[*]")
+    .getOrCreate()
+)
 
 orders = spark.read.csv("data/orders_extended.csv", header=True, inferSchema=True)
 
@@ -454,9 +456,11 @@ spark.stop()
 from pyspark.sql import SparkSession
 from pyspark.sql.functions import col
 
-spark = SparkSession.builder.appName("q13_perf")
-  .master("local[*]")
-  .getOrCreate()
+spark = (
+    SparkSession.builder.appName("q13_perf")
+    .master("local[*]")
+    .getOrCreate()
+)
 
 orders = spark.read.csv("data/orders_extended.csv", header=True, inferSchema=True)
 print("Default partitions:", orders.rdd.getNumPartitions())
@@ -472,10 +476,3 @@ spark.stop()
 ```
 
 ---
-
-# What we’ll add next (if you want deeper coverage)
-- `explode` for arrays + `from_json` with explicit schema
-- `pivot` + conditional aggregations
-- `join` performance (broadcast hints, skew detection)
-- Timestamp parsing (`to_timestamp`), timezone handling
-- Partition pruning demo (Parquet partitioned reads)

@@ -9,7 +9,6 @@ It’s written in Q&A style:
 ## Folders
 - `data/`: small local datasets used by the Q&A journey
 - `output/`: generated outputs (safe to delete)
-- `legacy/`: older module/code layout kept for reference (not the recommended starting point)
 
 ## Setup
 ```bash
