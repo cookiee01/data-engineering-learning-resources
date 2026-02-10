@@ -2,6 +2,7 @@
 
 Start here:
 - `PYSPARK_QA_JOURNEY.md`
+- `learning-path.md` (what to learn, in order)
 
 It’s written in Q&A style:
 - question → task → code → expected output → gotchas
