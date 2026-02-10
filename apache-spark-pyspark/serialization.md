@@ -188,3 +188,13 @@ Sometimes, but often less than people expect because Spark SQL uses Tungsten/Uns
 1. Spark serializes when it **moves** or **stores**.
 2. Shuffles are the biggest serialization tax.
 3. Kryo helps when you serialize **JVM objects** a lot; Spark SQL avoids many objects.
+
+---
+
+## 12) Further Reading (Spark SQL Internals)
+If you see `401 Unauthorized` on old `gitbooks.io` links, use the newer `books.japila.pl` site instead.
+
+- ExpressionEncoder (Spark SQL Internals): https://books.japila.pl/spark-sql-internals/ExpressionEncoder/
+- UnsafeRow (Spark SQL Internals): https://books.japila.pl/spark-sql-internals/UnsafeRow/
+- Encoder / Encoders (Spark SQL Internals): https://books.japila.pl/spark-sql-internals/Encoder/ and https://books.japila.pl/spark-sql-internals/Encoders/
+- (Older GitBook mirror) ExpressionEncoder (Mastering Spark SQL): https://jaceklaskowski.gitbooks.io/mastering-spark-sql/content/spark-sql-ExpressionEncoder.html

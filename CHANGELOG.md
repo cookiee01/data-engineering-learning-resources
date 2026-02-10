@@ -6,15 +6,11 @@ The format is based on Keep a Changelog.
 
 ## [Unreleased]
 ### Added
-- Added Spark serialization notes (JavaSerializer vs KryoSerializer) under PySpark
-- Expanded PySpark Q&A journey with thorough sections on schema drift, timestamps/timezones, conditional aggs, pivot, from_json+explode, sessionization, broadcast joins, skew joins, partition pruning, and JDBC reads
-- Added practice dataset `apache-spark-pyspark/data/orders_extended.csv` for ranking/windows examples
-- Expanded PySpark Q&A journey with deeper coverage of aggregations and window functions (dense_rank, row_number)
-- Added PySpark Q&A journey doc with tasks + code in one place
-- Added structured PySpark practice track (modules, runnable scripts, sample data)
+- Added PySpark practice track in `apache-spark-pyspark/PYSPARK_QA_JOURNEY.md` (Q&A format with tasks + code), covering file reads (CSV/JSON/XML), schema drift, timestamps/timezones, conditional aggregations, pivot, JSON parsing + explode, window functions (rank/dense_rank/row_number), sessionization, join performance (broadcast + skew handling), partition pruning, and JDBC reads
+- Added practice datasets under `apache-spark-pyspark/data/` (includes `orders_extended.csv` for window/ranking examples)
+- Added Spark serialization notes (JavaSerializer vs KryoSerializer) under PySpark, with links to Spark SQL internals (UnsafeRow / ExpressionEncoder)
 - Added Hive-on-Tez reducer count tuning notes under EMR
 - Added EMR/Hadoop notes link: Hadoop splits vs blocks article (Jerome Rajan)
- - Consolidated PySpark practice around `apache-spark-pyspark/PYSPARK_QA_JOURNEY.md` as the primary path
 
 ### Changed
 - Cleaned up PySpark Q&A journey (removed future-work section; fixed code snippet formatting)
