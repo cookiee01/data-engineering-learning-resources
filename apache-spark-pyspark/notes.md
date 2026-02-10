@@ -5,3 +5,6 @@
 
 ## Practice Track
 - `PYSPARK_QA_JOURNEY.md` (Q&A + tasks + code in one place)
+
+## Deep Dives
+- [Spark serialization (Java vs Kryo)](serialization.md)
