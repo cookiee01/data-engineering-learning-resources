@@ -1,4 +1,4 @@
-# Spark Serialization (Java vs Kryo) — Staff-Level Notes, Trainee-Friendly
+# Spark Serialization (Java vs Kryo)
 
 ## Goal (in 3 minutes)
 After reading this, you should be able to answer:
