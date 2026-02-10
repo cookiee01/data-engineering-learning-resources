@@ -20,14 +20,14 @@ The format is based on Keep a Changelog.
 - Cleaned up PySpark Q&A journey (removed future-work section; fixed code snippet formatting)
 
 ### Removed
-- Removed `apache-spark-pyspark/legacy/` to keep only the latest required PySpark track
+- Removed older PySpark module layout to keep only the current practice track
 
 ---
 
 ## [2026-02-09]
 ### Added
 - Added `INDEX.md` as a repo navigation hub (includes DataEngineering.wiki learning resources link)
-- Added `CONTRIBUTING.md` to keep notes trainee-friendly but staff-complete
+- Added `CONTRIBUTING.md` with note-writing guidelines
 
 ### Changed
 - Improved `README.md` to help new contributors navigate the repo

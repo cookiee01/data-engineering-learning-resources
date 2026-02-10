@@ -7,7 +7,7 @@ This repo is “notes-first”: we prefer short, high-signal notes and curated r
 - 1–5 external links that reinforce the note (cheat sheets, blogs, playlists).
 - Optional: a `progress.md` entry if it tracks your learning.
 
-## Note Quality Bar (Trainee-Friendly, Staff-Complete)
+## Note Quality Bar (Clear, Production-Oriented)
 Use this structure when writing new notes:
 
 1. Goal (in 1 minute)
@@ -17,7 +17,7 @@ Use this structure when writing new notes:
 5. On-the-wire details (headers, retries, timeouts, ordering, consistency)
 6. AWS mapping (if relevant)
 7. Debugging playbook (symptom → likely cause → what to check)
-8. Staff-level tradeoffs (cost, reliability, security, operability)
+8. Practical tradeoffs (cost, reliability, security, operability)
 9. Interview section (30-sec + 2-min answers + common follow-ups)
 
 ## Resource Curation Rules

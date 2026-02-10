@@ -105,7 +105,7 @@ Key takeaway:
 
 ---
 
-## 6) Another Staff-Level Insight: Sometimes Reduce *Stages* Are the Problem
+## 6) Optimization Insight: Sometimes Reduce *Stages* Are the Problem
 For queries with both `GROUP BY` and `ORDER BY`, Hive may introduce multiple reduce stages.
 
 Sometimes the biggest win is:

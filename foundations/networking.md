@@ -223,7 +223,7 @@ Interview-friendly approach:
 Reverse proxies and clients may retry.
 - Retrying non-idempotent operations (like “create order”) can double-write.
 
-Staff-level statement:
+Operational note:
 - “Retries are safe only if the operation is idempotent or guarded by idempotency keys.”
 
 ---
@@ -275,4 +275,3 @@ Proxy-related usual suspects:
 5. What causes 502 vs 504, and how do you debug it?
 6. How do timeouts and retries interact across client, CloudFront, ALB, and backend?
 7. How would you add WAF and rate limiting?
-

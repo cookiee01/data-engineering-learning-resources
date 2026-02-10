@@ -153,7 +153,7 @@ Pitfalls:
 
 ---
 
-## 6) The Stuff That Breaks Production (and How Staff Engineers Think)
+## 6) The Stuff That Breaks Production
 
 ### 6.1 Cache stampede (dogpile)
 Many requests miss at once (popular key expired or cache restart) -> DB is hammered.
@@ -205,7 +205,7 @@ Be careful with:
 
 ---
 
-## 8) Observability (You *must* mention this at Staff level)
+## 8) Observability (You *must* mention this in interviews and production)
 Metrics:
 - Hit rate / miss rate
 - Evictions
@@ -244,4 +244,3 @@ Alarms:
 
 4. **How do you prevent data leaks?**
    - “Correct cache key design; never cache personalized responses at edge without varying on identity; enforce separation of public/private caching.”
-

@@ -258,7 +258,7 @@ Spark behavior:
 - Reading multiple JSON files together often yields a superset schema.
 - Missing fields become null.
 
-Staff-level rule:
+Production rule:
 - Don’t rely on inference for important pipelines. Use explicit schema + validation.
 
 **Task**

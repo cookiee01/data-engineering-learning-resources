@@ -64,7 +64,7 @@ Shuffle, persist, broadcast, results, closures.
 ---
 
 ## 4) Two Execution “Worlds” in Spark: JVM Objects vs Spark SQL Binary
-This is the key nuance for staff-level answers.
+This is the key nuance for interview answers.
 
 ### World 1: JVM object world
 Examples:
@@ -83,7 +83,7 @@ DataFrames typically run using Spark SQL internals:
 Here:
 - changing `spark.serializer` may provide limited benefit because many paths already use optimized row/column encoders.
 
-**Staff-level soundbite**
+**Short version**
 Kryo vs JavaSerializer mostly affects JVM object serialization. Many DataFrame pipelines operate in Tungsten’s binary format, so serializer choice often has smaller impact unless you’re persisting serialized bytes or moving lots of non-row JVM objects.
 
 ---

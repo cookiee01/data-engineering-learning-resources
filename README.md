@@ -2,11 +2,11 @@
 
 A curated, notes-first repository for learning and interview preparation.
 
-This repo is intentionally organized to help you (and other developers) find the *best* material quickly without drowning in documentation.
+This repo is intentionally organized to help you (and other developers) find high-signal material quickly without drowning in documentation.
 
 ## How To Navigate
 - Start at `INDEX.md` for the table of contents.
-- Each topic folder contains short, trainee-friendly notes and links.
+- Each topic folder contains short, clarity-first notes and links.
 - Use `CHANGELOG.md` to see what changed recently.
 
 ## Repo Structure
@@ -26,5 +26,5 @@ This repo is intentionally organized to help you (and other developers) find the
 ## Contributing
 See `CONTRIBUTING.md` for:
 - how to add resources/notes
-- how to keep notes “trainee-friendly but staff-complete”
+- note-writing guidelines (clear + production-oriented)
 - how to update the changelog

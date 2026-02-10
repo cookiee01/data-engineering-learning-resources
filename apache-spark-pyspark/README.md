@@ -1,6 +1,6 @@
 # PySpark (Local macOS) — Practice Track
 
-If you want a **single, non-confusing path**, use:
+Start here:
 - `PYSPARK_QA_JOURNEY.md`
 
 It’s written in Q&A style:
