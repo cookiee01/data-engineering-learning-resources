@@ -21,6 +21,10 @@ This is the navigation hub for the repo.
 - System Design
   - `system-design/notes.md`
   - `system-design/caching.md`
+- Flink
+  - `apache-flink/README.md`
+  - `apache-flink/kafka-to-flink-local-setup.md`
+  - `apache-flink/practice-roadmap.md`
 - Spark / PySpark
   - `apache-spark-pyspark/notes.md`
 

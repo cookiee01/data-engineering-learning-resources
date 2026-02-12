@@ -6,6 +6,9 @@ The format is based on Keep a Changelog.
 
 ## [Unreleased]
 ### Added
+- Added Flink setup notes: local Kafka -> Flink runbook in `apache-flink/kafka-to-flink-local-setup.md` (Docker-based initial setup, SQL, produce/verify, troubleshooting)
+- Added phased Flink progression plan in `apache-flink/practice-roadmap.md` (from setup to PyFlink, operations, and Airflow orchestration)
+- Added `apache-flink/README.md` as the entry point for setup vs deep-practice tracks
 - Added PySpark practice track in `apache-spark-pyspark/PYSPARK_QA_JOURNEY.md` (Q&A format with tasks + code), covering file reads (CSV/JSON/XML), schema drift, timestamps/timezones, conditional aggregations, pivot, JSON parsing + explode, window functions (rank/dense_rank/row_number), sessionization, join performance (broadcast + skew handling), partition pruning, and JDBC reads
 - Added practice datasets under `apache-spark-pyspark/data/` (includes `orders_extended.csv` for window/ranking examples)
 - Added Spark serialization notes (JavaSerializer vs KryoSerializer) under PySpark, with links to Spark SQL internals (UnsafeRow / ExpressionEncoder)
