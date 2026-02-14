@@ -25,6 +25,8 @@ This is the navigation hub for the repo.
   - `apache-flink/README.md`
   - `apache-flink/kafka-to-flink-local-setup.md`
   - `apache-flink/practice-roadmap.md`
+- Kafka
+  - `apache-kafka/notes.md`
 - Spark / PySpark
   - `apache-spark-pyspark/notes.md`
 
