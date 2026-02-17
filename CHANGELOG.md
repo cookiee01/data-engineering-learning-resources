@@ -6,6 +6,8 @@ The format is based on Keep a Changelog.
 
 ## [Unreleased]
 ### Added
+- Added Spark concept note `apache-spark-pyspark/spark-concepts-execution-architecture.md` with corrected execution architecture details and linked source video
+- Added Spark/PySpark revision channel in `apache-spark-pyspark/notes.md` (Afaque Ahmad YouTube)
 - Added Kafka resources in `apache-kafka/notes.md` (YouTube crash course and Hello Interview deep dive)
 - Added Flink setup notes: local Kafka -> Flink runbook in `apache-flink/kafka-to-flink-local-setup.md` (Docker-based initial setup, SQL, produce/verify, troubleshooting)
 - Added phased Flink progression plan in `apache-flink/practice-roadmap.md` (from setup to PyFlink, operations, and Airflow orchestration)
