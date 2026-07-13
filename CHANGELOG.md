@@ -6,7 +6,7 @@ The format is based on Keep a Changelog.
 
 ## [Unreleased]
 ### Added
-- Added Spark concept note `apache-spark-pyspark/spark-concepts-execution-architecture.md` with corrected execution architecture details and linked source video
+- Added Apache Iceberg interview prep notes in `apache-iceberg/notes.md` — covers Iceberg vs Hive format, 4-tier metadata architecture (Catalog → Metadata JSON → Manifest List → Manifest Files → Data Files), hidden partitioning with all transforms (days/hours/months/years/bucket/truncate/identity), partition evolution, write + read path internals, Copy-on-Write vs Merge-on-Read strategies, delete file types (Position vs Equality), time travel queries, and snapshot/orphan file cleanup
 - Added Spark/PySpark revision channel in `apache-spark-pyspark/notes.md` (Afaque Ahmad YouTube)
 - Added Kafka resources in `apache-kafka/notes.md` (YouTube crash course and Hello Interview deep dive)
 - Added Flink setup notes: local Kafka -> Flink runbook in `apache-flink/kafka-to-flink-local-setup.md` (Docker-based initial setup, SQL, produce/verify, troubleshooting)

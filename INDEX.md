@@ -27,6 +27,8 @@ This is the navigation hub for the repo.
   - `apache-flink/practice-roadmap.md`
 - Kafka
   - `apache-kafka/notes.md`
+- Iceberg
+  - `apache-iceberg/notes.md` (architecture, hidden partitioning, CoW vs MoR, time travel)
 - Spark / PySpark
   - `apache-spark-pyspark/notes.md`
 
