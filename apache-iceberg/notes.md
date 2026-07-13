@@ -19,7 +19,10 @@
 4. [Row-Level Updates: CoW vs MoR](#4-row-level-updates-cow-vs-mor)
    - [Delete File Types](#delete-file-types)
 5. [Time Travel & Snapshot Cleanup](#5-time-travel--snapshot-cleanup)
-6. [Quick Reference Cheatsheet](#6-quick-reference-cheatsheet)
+6. [ACID Commits & Concurrent Writers](#6-acid-commits--concurrent-writers)
+7. [Schema Evolution & Field IDs](#7-schema-evolution--field-ids)
+8. [Operational Maintenance Playbook](#8-operational-maintenance-playbook)
+9. [Quick Reference Cheatsheet](#9-quick-reference-cheatsheet)
 
 ---
 
@@ -52,6 +55,8 @@ Iceberg tracks every data file at the metadata layer. This enables:
 ## 2. Iceberg Metadata Architecture
 
 When Spark/Trino reads an Iceberg table, it traverses a **4-tier metadata tree**:
+
+Editable diagram: [`diagrams/metadata-tree.excalidraw`](diagrams/metadata-tree.excalidraw)
 
 ```
 Catalog (Glue / Hive Metastore / Nessie)
@@ -339,7 +344,107 @@ CALL catalog.system.remove_orphan_files(table => 'my_db.events');
 
 ---
 
-## 6. Quick Reference Cheatsheet
+## 6. ACID Commits & Concurrent Writers
+
+**Alex:** In interviews, people say Iceberg has ACID transactions on S3. But S3 does not support atomic directory rename like HDFS. What is actually atomic?
+
+**Sam:** The atomic operation is not a file rename. It is the **catalog pointer swap** from the old metadata JSON to the new metadata JSON. Data files are written first, metadata is prepared next, and only then does the writer try to commit by updating the catalog pointer.
+
+Editable diagram: [`diagrams/acid-commit-flow.excalidraw`](diagrams/acid-commit-flow.excalidraw)
+
+```mermaid
+sequenceDiagram
+    participant W as Writer Job
+    participant S as Object Store
+    participant C as Catalog
+
+    W->>S: Write new data files
+    W->>S: Write new manifest files
+    W->>S: Write new metadata JSON
+    W->>C: Compare-and-swap table pointer
+    alt pointer unchanged
+        C-->>W: Commit succeeds
+    else another writer committed first
+        C-->>W: Commit conflict
+        W->>C: Refresh latest metadata and retry/abort
+    end
+```
+
+**Alex:** So readers never see half-written files?
+
+**Sam:** Correct. Readers start from the catalog's current metadata pointer. Until the pointer changes, new files are invisible even if they already exist in S3. If a job crashes before commit, those files are orphan files and can be cleaned later.
+
+**Alex:** What conflicts are detected?
+
+**Sam:** Iceberg uses optimistic concurrency. Two append-only writers can often both succeed after retry. But if one writer rewrites or deletes files that another writer also touched, Iceberg detects that the new snapshot is no longer based on the expected file set and rejects the unsafe commit.
+
+---
+
+## 7. Schema Evolution & Field IDs
+
+**Alex:** Why is Iceberg safer than Hive for schema changes?
+
+**Sam:** Iceberg tracks columns by stable **field IDs**, not just by column names or positions. That is why rename and reorder operations are metadata-only and do not corrupt old files.
+
+```mermaid
+flowchart LR
+    A["Field ID 1<br/>user_id"] --> A2["Field ID 1<br/>customer_id"]
+    B["Field ID 2<br/>event_time"] --> B2["Field ID 2<br/>event_time"]
+    C["Field ID 3<br/>amount"] --> C2["Field ID 3<br/>amount"]
+```
+
+**Alex:** Give me the interview answer for rename.
+
+**Sam:** In Hive-style tables, a rename can be ambiguous because readers may bind by name or position depending on file format and engine behavior. In Iceberg, `user_id` can be renamed to `customer_id` while keeping the same field ID. Old Parquet files do not need to be rewritten because the table metadata maps the current name to the same logical field.
+
+**Safe evolution examples:**
+```sql
+ALTER TABLE events RENAME COLUMN user_id TO customer_id;
+ALTER TABLE events ADD COLUMN device_type STRING;
+ALTER TABLE events ALTER COLUMN amount TYPE DECIMAL(18, 2);
+```
+
+**Be careful with:**
+- Dropping a column and later re-adding a column with the same name. It will get a new field ID, so it is a different logical column.
+- Type changes that are not widening conversions. Validate engine support before production rollout.
+- Nested struct changes. Iceberg supports them, but downstream engines and BI tools may lag.
+
+---
+
+## 8. Operational Maintenance Playbook
+
+**Alex:** What production jobs should I run for Iceberg tables?
+
+**Sam:** Think of maintenance as keeping metadata, files, and delete files healthy. Iceberg avoids Hive's listing problem, but it still needs periodic cleanup and compaction.
+
+Editable diagram: [`diagrams/maintenance-lifecycle.excalidraw`](diagrams/maintenance-lifecycle.excalidraw)
+
+```mermaid
+flowchart TD
+    A["Streaming / batch writes"] --> B["Many small data files"]
+    A --> C["Many delete files"]
+    B --> D["rewrite_data_files<br/>bin-pack small files"]
+    C --> D
+    D --> E["Fewer larger Parquet files<br/>faster scans"]
+    E --> F["expire_snapshots"]
+    F --> G["remove_orphan_files"]
+```
+
+| Symptom | Likely Cause | Maintenance Action |
+| :--- | :--- | :--- |
+| Query planning is slow | Too many manifests / metadata files | `rewrite_manifests` |
+| Scan reads many tiny files | Streaming or frequent small batches | `rewrite_data_files` |
+| Reads slow after CDC deletes | MoR delete files accumulated | `rewrite_data_files` to apply deletes |
+| Storage keeps growing | Old snapshots retained | `expire_snapshots` |
+| Untracked files in table path | Failed jobs before commit | `remove_orphan_files` |
+
+**Alex:** What is the one-liner staff answer?
+
+**Sam:** Iceberg makes writes atomic through metadata commits, but production performance comes from maintenance: compact small files, rewrite manifests when planning slows, expire old snapshots based on retention policy, and remove orphan files after failed writes.
+
+---
+
+## 9. Quick Reference Cheatsheet
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────┐
@@ -364,6 +469,12 @@ CALL catalog.system.remove_orphan_files(table => 'my_db.events');
 ├──────────────────────┼──────────────────────────────────────────────────┤
 │ Time travel          │ FOR SYSTEM_AS_OF '<timestamp>'                   │
 │ Snapshot cleanup     │ expire_snapshots() + remove_orphan_files()       │
+├──────────────────────┼──────────────────────────────────────────────────┤
+│ ACID commits         │ Atomic catalog pointer swap to new metadata JSON │
+│ Concurrency          │ Optimistic commit; refresh/retry on conflicts    │
+├──────────────────────┼──────────────────────────────────────────────────┤
+│ Schema evolution     │ Stable field IDs make rename/reorder safe        │
+│                      │ Re-added same-name column gets a new field ID    │
 ├──────────────────────┼──────────────────────────────────────────────────┤
 │ Compaction           │ rewrite_data_files() → merges small files +      │
 │                      │ applies delete files for clean CoW reads.        │
