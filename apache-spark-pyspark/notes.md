@@ -13,3 +13,4 @@
 ## Deep Dives
 - [Spark serialization (Java vs Kryo)](serialization.md)
 - [Spark concepts and execution architecture](spark-concepts-execution-architecture.md)
+-  https://theseniordevio.substack.com/p/apache-spark-architecture-deep-dive
