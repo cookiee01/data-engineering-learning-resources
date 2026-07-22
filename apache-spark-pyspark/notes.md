@@ -1,5 +1,7 @@
 # PySpark / Spark — Interview Notes
 
+**Targets Spark 3.x (primarily 3.2+ where AQE is enabled by default).** A few sections (push-based shuffle, star join) reference Spark 3.2–3.3 features. The core concepts (Catalyst, Tungsten, memory model, shuffle) apply to 2.x+ as well.
+
 ## 1. Catalyst Optimizer
 
 Catalyst is a rule-based optimizer (with some cost-based decisions) that converts a logical plan into an optimized physical plan through four phases.
@@ -634,7 +636,73 @@ When enabled (`spark.speculation=true`), Spark re-launches straggler tasks. If a
 
 ---
 
-## 15. Curated Resources
+## 15. Spark 4 — Key Changes for Interview Awareness
+
+Spark 4.0 was released May 2025 (current: 4.2.0). The core concepts (Catalyst, Tungsten, AQE, shuffle) are unchanged. These are the interview-relevant additions:
+
+### ANSI SQL Default
+
+`spark.sql.ansi.enabled` defaults to `true` (was `false`). This means:
+
+| Operation | Spark 3 (silent) | Spark 4 (error) |
+|---|---|---|
+| Division by zero | Returns `null` | Throws runtime error |
+| Invalid cast | Coerces silently | Rejects with error |
+| Type mismatch | Null propagation | Strict validation |
+
+**Interview mention:** "In Spark 4, ANSI SQL mode is default — operations like division-by-zero throw instead of returning null. Improves data quality but requires migration for pipelines that relied on the old behavior."
+
+### VARIANT Data Type
+
+A schema-on-read type for semi-structured JSON without defining a fixed schema upfront. Stored in a columnar binary format, faster than `struct<...>` or `string` + parsing.
+
+```python
+df = spark.read.json("s3://bucket/logs/", schema="payload VARIANT")
+df.select("payload:user_id", "payload:event_type")
+```
+
+**Interview mention:** "The VARIANT type lets you ingest JSON without a schema. Internally stored in a compact binary format, so it's faster than storing as string and parsing. Useful for schemaless data lakes or APIs with evolving payloads."
+
+### SQL Scripting
+
+Procedural SQL with session variables, control flow, and SQL UDFs:
+
+```sql
+DECLARE max_id INT DEFAULT 1000;
+WHILE max_id < 5000 DO
+  INSERT INTO target SELECT * FROM source WHERE id > max_id;
+  SET max_id = max_id + 1000;
+END WHILE;
+```
+
+Also: `CREATE FUNCTION ... AS SQL` for reusable SQL UDFs (no Python/Scala needed).
+
+**Interview mention:** "Spark 4 adds procedural SQL with variables and control flow, plus SQL UDFs. Reduces the need for Python/Scala for simple pipeline logic."
+
+### Spark Connect
+
+Client-server architecture decoupling the client from the cluster. Near feature-parity with classic Spark in 4.0 — including ML training over the remote protocol. New `spark.api.mode` setting to switch between classic and connect.
+
+**Interview mention:** "Spark Connect lets you run Spark operations from a lightweight client (~1.5 MB) without a full driver. Useful for thin clients, mobile, or embedding Spark into other applications."
+
+### Streaming: `transformWithState`
+
+New stateful streaming API that replaces `mapGroupsWithState` / `flatMapGroupsWithState`. Supports multiple state variables per key, timer-based callbacks, and TTL per state variable.
+
+**Interview mention:** "`transformWithState` is the new stateful streaming API in Spark 4. Each key can maintain multiple state variables with individual TTLs, plus you can register timer callbacks. More flexible than the old `mapGroupsWithState`."
+
+### Migration Note
+
+| Config | Spark 3 | Spark 4 |
+|---|---|---|
+| `spark.sql.ansi.enabled` | `false` | `true` (default) |
+| `spark.sql.sources.partitionOverwriteMode` | `static` (default) | `dynamic` (default) |
+| `spark.sql.adaptive.enabled` | `false` (3.0-3.1), `true` (3.2+) | `true` (default) |
+| Hive UDFs | Supported | Deprecated |
+
+---
+
+## 16. Curated Resources
 
 ### Official Documentation
 - [Apache Spark Docs — Tuning](https://spark.apache.org/docs/latest/tuning.html) — start here for config reference
