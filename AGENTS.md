@@ -23,10 +23,10 @@ For Python or PySpark snippets, use 4-space indentation, descriptive snake_case 
 ## Testing Guidelines
 There is no central automated test suite. Validate Markdown changes by checking links, headings, and examples manually. For PySpark examples, run them locally inside the virtual environment and keep sample inputs small. If a command produces generated files, place them under an `output/` directory and avoid committing bulky or transient results.
 
-## Commit & Pull Request Guidelines
+## Commit & Changelog
 Existing commits use short, imperative messages such as `Add Spark execution architecture concept note and video link` and `Clean up wording for public repo`. Follow that style: start with a verb, name the topic, and keep the subject specific.
 
-Pull requests should summarize what changed, list added or removed resources, mention any commands run, and link related issues when available. Update `CHANGELOG.md` for notable additions, removals, or reorganizations.
+Update `CHANGELOG.md` for notable additions, removals, or reorganizations. `CONTRIBUTING.md` has the note quality bar and resource curation rules.
 
 ## Security & Configuration Tips
 Do not commit IDE files, OS files, credentials, private URLs, or local environment directories such as `.venv/`. Keep examples generic and avoid exposing account IDs, tokens, internal hostnames, or proprietary production details.

@@ -32,6 +32,9 @@ This is the navigation hub for the repo.
 - Spark / PySpark
   - `apache-spark-pyspark/notes.md`
 
+## Interview Prep
+- `interview-prep/roadmap.md` (full 2026 topic list: SQL, Spark, Kafka, Flink, Iceberg, cloud, DSA, system design)
+
 ## Progress Tracking
 - Foundations progress: `foundations/progress.md`
 
