@@ -6,6 +6,11 @@ The format is based on Keep a Changelog.
 
 ## [Unreleased]
 ### Added
+- Added `interview-prep/2-month-sprint-plan.md` — 8-week daily study schedule covering SQL → Spark → Python/DSA → Kafka/Flink → System Design → Cloud → Behavioral → Mocks
+- Added `interview-prep/progress-checklist.md` — granular subtopic checklist (100+ items) organized by category to track interview readiness
+
+### Changed
+- Updated `INDEX.md` to link both new interview-prep files under Interview Prep and Progress Tracking
 - Added Apache Iceberg interview prep notes in `apache-iceberg/notes.md` — covers Iceberg vs Hive format, 4-tier metadata architecture (Catalog → Metadata JSON → Manifest List → Manifest Files → Data Files), hidden partitioning with all transforms (days/hours/months/years/bucket/truncate/identity), partition evolution, write + read path internals, Copy-on-Write vs Merge-on-Read strategies, delete file types (Position vs Equality), time travel queries, and snapshot/orphan file cleanup
 - Added Spark/PySpark revision channel in `apache-spark-pyspark/notes.md` (Afaque Ahmad YouTube)
 - Added Kafka resources in `apache-kafka/notes.md` (YouTube crash course and Hello Interview deep dive)

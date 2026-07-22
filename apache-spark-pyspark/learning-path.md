@@ -127,7 +127,9 @@ In this repo:
 - Exactly-once: what it means in practice (idempotency, sinks, replay)
 
 ## Suggested Order in This Repo
-- Start: `PYSPARK_QA_JOURNEY.md`
-- Then: `serialization.md`
+- Start: `PYSPARK_QA_JOURNEY.md` (code-focused practice)
+- Then: `notes.md` (conceptual deep dive)
+- Then: `serialization.md` (specific deep dive on serialization)
 - Use this file as the topic checklist.
+- Track progress with `../interview-prep/progress-checklist.md` (Section 2: Apache Spark / PySpark)
 
