@@ -1,28 +1,60 @@
-# Apache Kafka — Interview Prep Notes
+# Apache Kafka — Interview Deep Dive
 
-> Format: Senior DE (Alex) ↔ Staff DE (Sam) conversation series.
+> Format: Senior DE (Alex) ↔ Staff DE (Sam) conversation series, plus
+> real interview questions with full diagnosis walkthroughs.
 > Goal: Deep understanding for production use and senior/staff-level interviews.
 
 ---
 
 ## Table of Contents
 
-1. [Why Kafka? The Log Abstraction](#1-why-kafka-the-log-abstraction)
-2. [Architecture: Brokers, Partitions, KRaft](#2-architecture-brokers-partitions-kraft)
-3. [Replication and ISR](#3-replication-and-isr)
-4. [Producer Path: Acks, Batching, Idempotence](#4-producer-path-acks-batching-idempotence)
-5. [Consumer Groups and Rebalancing](#5-consumer-groups-and-rebalancing)
-6. [Delivery Semantics and Exactly-Once](#6-delivery-semantics-and-exactly-once)
-7. [Retention and Log Compaction](#7-retention-and-log-compaction)
-8. [Storage Internals: Why Kafka Is Fast](#8-storage-internals-why-kafka-is-fast)
-9. [Operational Playbook](#9-operational-playbook)
-10. [Quick Reference Cheatsheet](#10-quick-reference-cheatsheet)
-11. [Kafka 4.0: KIP-848 & Tiered Storage](#11-kafka-40-kip-848--tiered-storage)
-12. [Resources](#12-resources)
+1. [The Opening Question](#1-the-opening-question)
+2. [Why Kafka? The Log Abstraction](#2-why-kafka-the-log-abstraction)
+3. [Architecture: Brokers, Partitions, KRaft](#3-architecture-brokers-partitions-kraft)
+4. [Replication and ISR](#4-replication-and-isr)
+5. [Producer Path: Acks, Batching, Idempotence](#5-producer-path-acks-batching-idempotence)
+6. [Consumer Groups and Rebalancing](#6-consumer-groups-and-rebalancing)
+7. [Delivery Semantics and Exactly-Once](#7-delivery-semantics-and-exactly-once)
+8. [Retention and Log Compaction](#8-retention-and-log-compaction)
+9. [Storage Internals: Why Kafka Is Fast](#9-storage-internals-why-kafka-is-fast)
+10. [Real Interview Questions](#10-real-interview-questions)
+11. [Decision Trees](#11-decision-trees)
+12. [Kafka 4.0: KIP-848 & Tiered Storage](#12-kafka-40-kip-848--tiered-storage)
+13. [Operational Playbook](#13-operational-playbook)
+14. [Quick Reference — Interview Edition](#14-quick-reference--interview-edition)
+15. [Resources](#15-resources)
 
 ---
 
-## 1. Why Kafka? The Log Abstraction
+## 1. The Opening Question
+
+**Question:** *"Design a system that ingests 1 million clickstream events per second and makes them available to 5 different teams."*
+
+```mermaid
+flowchart LR
+    PROD["Producers<br/>(web servers,<br/>mobile SDKs)"] --> K["Kafka Cluster<br/>Topic: clicks<br/>24 partitions, RF=3"]
+    K --> G1["Group: realtime-dash<br/>(Flink job)"]
+    K --> G2["Group: etl-to-lake<br/>(Spark batch)"]
+    K --> G3["Group: ml-features<br/>(feast ingest)"]
+    K --> G4["Group: fraud-detection<br/>(Kafka Streams)"]
+    K --> G5["Group: audit-archive<br/>(S3 sink connector)"]
+
+    G1 -.->|"each group has<br/>independent offsets<br/>— replay, lag, pace<br/>are per-group"| NOTE["1 write, 5 reads<br/>producer never knows<br/>consumers exist"]
+```
+
+**Answer structure:**
+```
+1. Kafka as the central log: producers write once, each team reads
+   independently via its own consumer group
+2. Partitions for parallelism: 24 partitions → up to 24 consumers per group
+3. RF=3 + durability triangle for no data loss
+4. Retention 7 days → any team can replay a week of history
+5. Schema Registry + Avro for contract enforcement between teams
+```
+
+---
+
+## 2. Why Kafka? The Log Abstraction
 
 ### The Core Insight
 
@@ -44,45 +76,44 @@ Because consumers only move an offset pointer, the same data can feed a real-tim
 - **Buffering**: Kafka absorbs burst traffic (CDC spikes, clickstream floods) so downstream systems process at their own rate.
 - **Replayability**: reprocessing after a bug fix is an offset reset, not a re-ingest from source.
 
+**Alex:** Everyone says "Kafka is a log, not a queue." What actually changes in how I design around it?
+
+**Sam:** Three things. First, you stop worrying about "did the consumer get it" — the data sits there for 7 days regardless, so slow consumers are a lag metric, not a data-loss risk. Second, you design for replay from day one: every pipeline you build will be re-run someday, so make transformations idempotent. Third, retention becomes a design lever: a compacted topic is a database changelog, a 7-day topic is a stream buffer, a tiered-storage topic is an archive. Same system, three roles.
+
 ---
 
-## 2. Architecture: Brokers, Partitions, KRaft
-
-```
-Topic: orders (6 partitions, RF=3)
-
-Broker 1        Broker 2        Broker 3
-─────────       ─────────       ─────────
-P0 (L)          P0 (F)          P0 (F)
-P1 (F)          P1 (L)          P1 (F)
-P2 (F)          P2 (F)          P2 (L)
-...
-
-L = leader replica (all reads/writes go here)
-F = follower replica (replicates from leader)
-```
-
-### Key Concepts
+## 3. Architecture: Brokers, Partitions, KRaft
 
 ```mermaid
-flowchart LR
-    subgraph Topic[Topic: orders - 3 partitions, RF=3]
-        direction LR
-        subgraph B1[Broker 1]
-            P0L[P0 Leader]
-            P1F[P1 Follower]
+flowchart TB
+    subgraph Cluster["Kafka Cluster — Topic: orders (6 partitions, RF=3)"]
+        subgraph B1["Broker 1"]
+            P0L["P0 Leader"]
+            P1F["P1 Follower"]
+            P2F["P2 Follower"]
         end
-        subgraph B2[Broker 2]
-            P0F[P0 Follower]
-            P1L[P1 Leader]
+        subgraph B2["Broker 2"]
+            P0F["P0 Follower"]
+            P1L["P1 Leader"]
+            P3F["P3 Follower"]
         end
+        subgraph B3["Broker 3"]
+            P0F2["P0 Follower"]
+            P1F2["P1 Follower"]
+            P2L["P2 Leader"]
+        end
+        P0L -.->|replicate| P0F
+        P0L -.->|replicate| P0F2
+        P1L -.->|replicate| P1F
+        P1L -.->|replicate| P1F2
     end
-    Producer -->|write| P0L
-    Producer -->|write| P1L
-    P0L -.->|replicate| P0F
-    P1L -.->|replicate| P1F
-    C1[Consumer A - group G1] --> P0L
-    C1 --> P1F
+
+    PR["Producer"] -->|writes only to leaders| P0L
+    PR --> P1L
+    PR --> P2L
+    CO["Consumer (group G1)"] -->|reads from leaders| P0L
+    CO --> P1L
+    CO --> P2L
 ```
 
 | Concept | Detail |
@@ -99,18 +130,29 @@ flowchart LR
 - **Read scaling**: within a consumer group, max active consumers = partition count. Extra consumers sit idle.
 - **Ordering guarantee**: only *within* a partition. Global ordering requires one partition (and kills parallelism).
 
+**Alex:** I need strict ordering for order events per customer. What do I do?
+
+**Sam:** Use `customer_id` as the message key — Kafka hashes the key to a partition, so all events for one customer land in the same partition and stay ordered. The trap: if one customer produces 80% of traffic, their partition is hot. Ordering per key and even load are in tension when keys skew. If skew hits, you either accept it (that one partition is a bottleneck), or you salt keys and give up strict ordering. There is no config that gives both.
+
 ---
 
-## 3. Replication and ISR
+## 4. Replication and ISR
 
 ### ISR (In-Sync Replicas)
 
 The **ISR** is the set of replicas caught up to the leader (within `replica.lag.time.max.ms`, default 30s).
 
-```
-Leader:  offset 1000 ──► high watermark: 995
-F1:      offset 1000 ✓ (in ISR)
-F2:      offset 400  ✗ (lagging → kicked out of ISR)
+```mermaid
+flowchart LR
+    subgraph Partition["Partition P0 — one point in time"]
+        L["Leader<br/>LEO: 1000<br/>(Log End Offset)"]
+        HW["High Watermark: 995<br/>consumers can read ≤ 995"]
+        F1["Follower 1<br/>replicated to 1000 ✓<br/>in ISR"]
+        F2["Follower 2<br/>replicated to 400 ✗<br/>lagging — kicked from ISR"]
+    end
+    L --> HW
+    L -.->|fetch| F1
+    L -.->|fetch| F2
 ```
 
 - **High watermark**: the highest offset replicated to *all* ISR members. Consumers can only read up to the high watermark — never unreplicated data.
@@ -120,11 +162,11 @@ F2:      offset 400  ✗ (lagging → kicked out of ISR)
 
 For a partition that survives a broker failure without data loss:
 
-```
+```ini
 replication.factor = 3
-acks = all                          (producer waits for full ISR)
-min.insync.replicas = 2             (write fails if ISR shrinks below 2)
-unclean.leader.election.enable = false   (default — never elect an out-of-sync replica)
+acks = all                              # producer waits for full ISR
+min.insync.replicas = 2                 # write fails if ISR shrinks below 2
+unclean.leader.election.enable = false  # never elect an out-of-sync replica
 ```
 
 **Alex:** Why do people say `acks=all` alone is not enough?
@@ -144,7 +186,7 @@ unclean.leader.election.enable = false   (default — never elect an out-of-sync
 
 ---
 
-## 4. Producer Path: Acks, Batching, Idempotence
+## 5. Producer Path: Acks, Batching, Idempotence
 
 ### Write Path
 
@@ -194,7 +236,7 @@ sequenceDiagram
 
 ---
 
-## 5. Consumer Groups and Rebalancing
+## 6. Consumer Groups and Rebalancing
 
 ### Group Semantics
 
@@ -209,6 +251,29 @@ sequenceDiagram
 | **Eager** (legacy) | Everyone revokes all partitions, full reassignment | — |
 | **Cooperative sticky** (2.4+, default in 4.0) | Only moving partitions are revoked; the rest keep processing | Stop-the-world pauses on every deploy/scale event |
 | **Static membership** (`group.instance.id`, KIP-345) | Restarted member keeps its assignment if back within `session.timeout.ms` | Rolling restarts no longer trigger rebalances at all |
+
+```mermaid
+sequenceDiagram
+    participant C1 as Consumer 1
+    participant C2 as Consumer 2
+    participant GC as Group Coordinator
+
+    Note over C1,GC: Eager rebalance (legacy)
+    C1->>GC: JoinGroup
+    C2->>GC: JoinGroup
+    GC-->>C1: Revoke ALL partitions
+    GC-->>C2: Revoke ALL partitions
+    Note over C1,C2: STOP-THE-WORLD:<br/>all processing halts
+    GC-->>C1: Assign P0, P1
+    GC-->>C2: Assign P2
+
+    Note over C1,GC: Cooperative rebalance (default in 4.0)
+    C1->>GC: JoinGroup
+    GC-->>C1: Revoke only P1 (moving partition)
+    Note over C1: P0 keeps processing
+    GC-->>C2: Assign P1
+    Note over C2: Only the moved partition<br/>had a gap
+```
 
 ### Failure Detection — Two Timers People Confuse
 
@@ -227,7 +292,7 @@ sequenceDiagram
 
 ---
 
-## 6. Delivery Semantics and Exactly-Once
+## 7. Delivery Semantics and Exactly-Once
 
 | Semantic | How | Failure mode |
 | :--- | :--- | :--- |
@@ -237,14 +302,24 @@ sequenceDiagram
 
 ### What Kafka Transactions Actually Do
 
-For consume-transform-produce pipelines (Streams, Flink Kafka sink):
+```mermaid
+sequenceDiagram
+    participant SRC as Input Topic
+    participant APP as App (transactional.id=T1)
+    participant OUT as Output Topic
+    participant OFF as __consumer_offsets
+    participant TC as Transaction Coordinator
 
-```
-1. Producer with transactional.id begins a transaction
-2. Writes output records to output partitions (invisible to read_committed consumers)
-3. Sends consumed input offsets to __consumer_offsets *inside the same transaction*
-4. Transaction coordinator runs 2PC across all touched partitions
-5. Commit marker written → consumers with isolation.level=read_committed now see the data
+    APP->>TC: beginTransaction()
+    SRC->>APP: consume batch
+    APP->>OUT: write output records
+    Note over OUT: Invisible to read_committed<br/>consumers until commit
+    APP->>OFF: write consumed offsets
+    Note over OFF: Inside the same transaction
+    APP->>TC: commitTransaction()
+    TC->>OUT: 2PC: commit markers
+    TC->>OFF: 2PC: commit markers
+    Note over OUT,OFF: Atomic: offsets + output<br/>commit together or not at all
 ```
 
 The key move: **input offsets and output records commit atomically.** A crash either commits both or neither — no duplicates, no loss, even across partitions.
@@ -259,7 +334,7 @@ The key move: **input offsets and output records commit atomically.** A crash ei
 
 ---
 
-## 7. Retention and Log Compaction
+## 8. Retention and Log Compaction
 
 ### Time/Size Retention (default: `cleanup.policy=delete`)
 
@@ -286,7 +361,25 @@ After:    k2→X  k3→P  k1→C          (latest value per key; tombstone
 
 ---
 
-## 8. Storage Internals: Why Kafka Is Fast
+## 9. Storage Internals: Why Kafka Is Fast
+
+```mermaid
+flowchart LR
+    subgraph PartitionDir["Partition directory on broker disk"]
+        S1["00000000000000000000.log<br/>(segment 0, 1 GB)"]
+        S2["00000000000001000000.log<br/>(segment 1, 1 GB)"]
+        S3["00000000000002000000.log<br/>(active segment —<br/>never deleted/compacted)"]
+        I1[".index / .timeindex<br/>(offset → byte position)"]
+    end
+
+    subgraph ReadPath["Consumer read path — zero copy"]
+        PC["Page Cache (RAM)"]
+        SK["Socket"]
+        PC -->|"sendfile() — no JVM copy"| SK
+    end
+
+    S3 -.->|"recent data served<br/>from page cache"| PC
+```
 
 | Mechanism | Effect |
 | :--- | :--- |
@@ -302,7 +395,232 @@ After:    k2→X  k3→P  k1→C          (latest value per key; tombstone
 
 ---
 
-## 9. Operational Playbook
+## 10. Real Interview Questions
+
+### Q1: "Your consumer lag is growing 10K messages/minute. Walk me through your diagnosis."
+
+```mermaid
+flowchart TD
+    LAG["Lag growing steadily"]
+    LAG --> S1{"Lag on ALL partitions<br/>or just some?"}
+
+    S1 -->|"All partitions"| CAP["Capacity problem:<br/>consumption rate < produce rate"]
+    S1 -->|"One/few partitions"| SKEW["Hot partition:<br/>key skew or slow handler<br/>for a specific key range"]
+
+    CAP --> C1["Check: produce rate vs consume rate<br/>(kafka-consumer-groups --describe)"]
+    C1 --> C2["Fix order:<br/>1. Add consumers (up to partition count)<br/>2. Increase partitions if consumers maxed<br/>3. Profile the sink (usually the bottleneck)<br/>4. Reduce per-message work (batch the sink writes)"]
+
+    SKEW --> K1["Check: key distribution<br/>(sample messages per partition)"]
+    K1 --> K2["Fix: salt the key, or accept skew,<br/>or split hot key to dedicated topic"]
+```
+
+**The one-liner:** "Lag is a rate mismatch. Either the whole group is
+under-provisioned (add consumers/partitions), or one partition is hot
+(fix the key)."
+
+### Q2: "After a deployment, all consumer groups pause for 30 seconds. Why, and how do you make deployments transparent?"
+
+**Diagnosis:** Eager rebalance protocol — every member revokes all
+partitions, full reassignment, processing halts group-wide.
+
+**Fix:**
+```ini
+# 1. Static membership — restarted member keeps its assignment
+group.instance.id=consumer-pod-42
+
+# 2. Cooperative sticky assignor (default in 4.0)
+partition.assignment.strategy=org.apache.kafka.clients.consumer.CooperativeStickyAssignor
+
+# 3. Roll pods one at a time (K8s maxUnavailable=1)
+```
+
+**Result:** rolling restarts stop triggering rebalances entirely
+(static membership), and when a rebalance does happen, only moving
+partitions pause.
+
+### Q3: "You see `NOT_ENOUGH_REPLICAS` errors and producers are blocked. What's happening?"
+
+```mermaid
+flowchart LR
+    ERR["NOT_ENOUGH_REPLICAS"] --> MEAN["Meaning: ISR size <<br/>min.insync.replicas"]
+    MEAN --> C1["Cause A: broker down<br/>→ followers offline"]
+    MEAN --> C2["Cause B: followers lagging<br/>beyond replica.lag.time.max.ms (30s)<br/>→ kicked from ISR"]
+    C2 --> WHY["Why followers lag:<br/>- broker CPU/disk saturated<br/>- network congestion<br/>- large message bursts"]
+    WHY --> FIX["Fix: restore broker health first<br/>Do NOT lower min.insync.replicas<br/>to mask it — that silently<br/>weakens durability"]
+```
+
+### Q4: "Design a pipeline: read from Kafka, transform, write to S3 as Parquet. Duplicates are unacceptable."
+
+**Answer:**
+```
+1. Consume: at-least-once (process, then commit)
+2. Transform: pure/deterministic functions only (no random(), no now()
+   baked into output rows — use event time from the record)
+3. Write: idempotent sink pattern:
+   - Write to staging path: s3://bucket/staging/dt=.../attempt-N/
+   - Dedup key: Kafka (topic, partition, offset) embedded in each row
+   - Atomic commit: write a _SUCCESS marker only after all rows land
+   - On retry: overwrite the same staging path (idempotent by path)
+4. Downstream dedup (belt and braces):
+   - Iceberg MERGE INTO on (topic, partition, offset) natural key
+```
+
+**Why not "just use exactly-once":** Kafka transactions end at the Kafka
+boundary. S3 has no transaction coordinator. The design pattern is
+at-least-once + idempotent writes + dedup by natural key.
+
+### Q5: "Kafka is slow for one consumer group but fine for others. Same cluster, same topic. Why?"
+
+**Likely causes, in order:**
+1. **That group reads cold data**: other groups read from page cache
+   (recent offsets); this group lags far behind and forces disk reads
+   → check lag depth per group
+2. **Fetch size too small**: `fetch.min.bytes` / `max.partition.fetch.bytes`
+   limiting throughput for large messages
+3. **Client-side bottleneck**: deserialization (e.g., Avro without
+   schema caching), or slow per-message processing
+4. **Tiered storage**: if lag exceeds hot-tier retention, every fetch
+   hits S3 — expect 10-100x higher latency than page-cache reads
+
+### Q6: "How many partitions should this topic have?" — the full framework
+
+```
+Inputs:
+  P = target produce throughput (MB/s)
+  C = target consume throughput (MB/s)
+  p = single-partition produce rate (~10s of MB/s, message-size dependent)
+  c = single-partition consume rate
+  G = max consumers you'll ever need in the busiest group
+
+Partition count = max( P/p, C/c, G ) + headroom
+
+Example:
+  P = 500 MB/s, p = 25 MB/s  → need ≥ 20 for writes
+  G = 30 consumers planned    → need ≥ 30 for reads
+  → 36 partitions (headroom), not 20 and not 100
+```
+
+**Costs of over-partitioning:** more file handles, more controller
+metadata, longer leader-election storms on broker failure. **Cost of
+under-partitioning:** parallelism ceiling you can't raise without
+breaking per-key ordering (adding partitions re-hashes keys).
+
+### Q7: "A compacted topic is 500 GB and growing. Consumers rebuilding state take 6 hours. Fix it."
+
+```mermaid
+flowchart TD
+    BIG["Compacted topic: 500 GB"]
+    BIG --> WHY{"Why so big?"}
+    WHY --> W1["High key churn:<br/>new keys constantly<br/>(nothing to compact away)"]
+    WHY --> W2["Compaction not keeping up:<br/>dirty ratio never triggers<br/>or cleaner threads starved"]
+
+    W1 --> F1["Fix: this is not a changelog<br/>workload — use delete retention<br/>+ a lake for history"]
+    W2 --> F2["Fix: tune cleaner:<br/>num.cleaner.threads ↑<br/>min.cleanable.dirty.ratio ↓ (0.5→0.2)<br/>log.cleaner.io.buffer.size ↑"]
+
+    F2 --> SNAP["Alternative: Kafka Streams<br/>restore from local RocksDB<br/>snapshots instead of full replay"]
+```
+
+---
+
+## 11. Decision Trees
+
+### 11.1 Delivery Semantics Selection
+
+```mermaid
+flowchart TD
+    START["Can downstream tolerate<br/>duplicates or loss?"]
+    START -->|"Some loss OK<br/>(metrics, sampling)"| AMO["At-most-once<br/>commit before process"]
+    START -->|"Duplicates OK<br/>(idempotent sink)"| ALO["At-least-once<br/>process, then commit<br/>+ idempotent sink"]
+    START -->|"Neither tolerable"| EO{"Sink inside Kafka?"}
+    EO -->|"Yes (Kafka→Kafka)"| TX["Transactions<br/>transactional.id +<br/>read_committed"]
+    EO -->|"No (external sink)"| IDEM["At-least-once +<br/>idempotent sink<br/>(upsert by natural key)<br/>'exactly-once effect'"]
+```
+
+### 11.2 Retention Policy Selection
+
+```mermaid
+flowchart TD
+    START["What is this topic's role?"]
+    START -->|"Stream buffer<br/>(replay recent failures)"| DEL["cleanup.policy=delete<br/>retention.ms = 7 days"]
+    START -->|"Changelog / latest state<br/>(dimension tables, CDC)"| COMPACT["cleanup.policy=compact<br/>+ tombstones for deletes"]
+    START -->|"Long-term archive<br/>(compliance, reprocessing)"| TIER["delete + tiered storage<br/>hot: days, cold: months/years"]
+    START -->|"Both history AND latest state"| BOTH["Two topics:<br/>compacted for state,<br/>delete for history"]
+```
+
+---
+
+## 12. Kafka 4.0: Key Changes (KIP-848 & Tiered Storage)
+
+Kafka 4.0 (released 2025) removes ZooKeeper entirely (already gone in
+3.x for new clusters) and introduces two major changes DEs must know.
+
+### KIP-848: New Consumer Rebalance Protocol
+
+The biggest change to consumer groups since Kafka 0.9.
+
+| Aspect | Old Protocol (Kafka < 3.7) | New Protocol (KIP-848, 3.7+) |
+|---|---|---|
+| **Coordination** | All rebalance coordination through the **group coordinator** broker | Same, but protocol is **incremental and cooperative by default** |
+| **Rebalance type** | Stop-the-world (all consumers revoke all partitions) | **Incremental** — only affected consumers revoke/assign partitions |
+| **Assignment** | Client-side (consumers compute assignment) | **Server-side** (broker computes assignment) |
+| **State** | Consumers track assignment locally | Assignment tracking moved to broker |
+| **Performance** | Full rebalance can take seconds for large groups | Sub-second rebalances, no global pause |
+
+**Why it matters:**
+- Large consumer groups (1000+) no longer pause processing during rebalances
+- Adding/removing consumers is near-transparent
+- Server-side assignment enables smarter load balancing
+
+### KIP-405: Tiered Storage
+
+Separates **hot** (local broker disk) from **cold** (S3/GCS/ABS) data,
+enabling near-infinite retention without adding broker nodes.
+
+```mermaid
+flowchart LR
+    subgraph Broker["Broker"]
+        HD["Hot tier: local SSD<br/>recent segments<br/>page-cache reads, ms latency"]
+    end
+    subgraph Cold["Object Store"]
+        CD["Cold tier: S3/GCS/ABS<br/>older segments<br/>fetched on demand, higher latency"]
+    end
+    HD -->|"segment rolls past<br/>local retention"| CD
+    CONS["Consumer reads offset 1M<br/>(unchanged client code)"] --> B2["Broker"]
+    B2 -->|"offset in hot tier"| HD
+    B2 -->|"offset in cold tier:<br/>broker fetches from S3,<br/>serves transparently"| CD
+```
+
+| Tier | Storage | Performance | Retention | Cost |
+|---|---|---|---|---|
+| **Hot** (broker disks) | Local SSD/HDD | Low latency | Hours to days | High ($/GB) |
+| **Cold** (object store) | S3/GCS/ABS | Higher latency on cold reads | Months to years | Low ($/GB) |
+
+**When to use:**
+- Compliance requires multi-year retention
+- Reprocessing historical data without re-ingesting
+- Reducing broker disk cost (largest Kafka operational expense)
+
+**DE interview answer:**
+> "Tiered Storage moves older segment files from broker-attached disks
+> to S3. Consumers still read from any offset — the broker fetches from
+> S3 transparently. It decouples retention from storage cost."
+
+### KRaft Maturity (ZooKeeper Removal)
+
+| Version | KRaft Status |
+|---|---|
+| Kafka 3.3 (2022) | KRaft production-ready for new clusters |
+| Kafka 3.5 (2023) | KRaft self-balancing, JBOD support |
+| Kafka 4.0 (2025) | ZooKeeper code **removed entirely** |
+
+> [!WARNING]
+> If you see a job posting or blog from 2023 mentioning ZooKeeper,
+> that is **obsolete**. Kafka 4.0 has no ZK code. KRaft uses a
+> Raft-based controller quorum.
+
+---
+
+## 13. Operational Playbook
 
 ### Symptom → Likely Cause → First Action
 
@@ -328,105 +646,33 @@ After:    k2→X  k3→P  k1→C          (latest value per key; tombstone
 
 ---
 
-## 10. Quick Reference Cheatsheet
+## 14. Quick Reference — Interview Edition
 
 | Question | Short answer |
 | :--- | :--- |
+| Kafka in one line? | Distributed append-only log; offset-based, non-destructive reads |
 | Ordering guarantee? | Per partition only. Key by entity ID. |
 | Durability recipe? | RF=3, `acks=all`, `min.insync.replicas=2`, unclean election off |
+| Why is acks=all not enough? | "All" = current ISR, which can shrink to just the leader |
+| High watermark? | Highest offset replicated to all ISR; consumers read ≤ HW |
 | Max consumers per group? | Partition count |
 | Why rebalance on slow processing? | `max.poll.interval.ms` (5 min) exceeded — poll loop must make progress |
+| Rebalance storms on deploy? | Missing static membership (`group.instance.id`) + eager protocol |
 | At-least-once? | Process first, commit offsets after |
 | Exactly-once in Kafka? | Idempotent producer + transactions (`transactional.id`), `read_committed` consumers |
 | Exactly-once to Postgres/S3? | Not from Kafka alone — at-least-once + idempotent sink |
-| Why is Kafka fast? | Sequential I/O, page cache, zero-copy, batching |
+| Why is Kafka fast? | Sequential I/O, page cache, zero-copy sendfile, end-to-end batching |
 | Retention unit? | Segments — active segment never deleted/compacted |
 | Compaction guarantees? | Latest value per key; tombstones removed after `delete.retention.ms` |
 | ZooKeeper? | Gone — KRaft since 3.3 (prod-ready), removed entirely in 4.0 |
 | Adding partitions later? | Allowed, but re-hashes keys — breaks per-key ordering across the change |
+| KIP-848? | Server-side, incremental consumer rebalancing (sub-second, no stop-the-world) |
+| KIP-405? | Tiered storage — cold segments to S3, transparent reads |
+| Lag diagnosis one-liner? | Rate mismatch: under-provisioned group, or one hot partition |
 
 ---
 
-## 11. Kafka 4.0: Key Changes (KIP-848 & Tiered Storage)
-
-Kafka 4.0 (released 2025) removes ZooKeeper entirely (already gone in
-3.x for new clusters) and introduces two major changes DEs must know.
-
----
-
-### KIP-848: New Consumer Rebalance Protocol
-
-The biggest change to consumer groups since Kafka 0.9.
-
-| Aspect | Old Protocol (Kafka < 3.7) | New Protocol (KIP-848, 3.7+) |
-|---|---|---|
-| **Coordination** | All rebalance coordination through the **group coordinator** broker | Same, but protocol is **incremental and cooperative by default** |
-| **Rebalance type** | Stop-the-world (all consumers revoke all partitions) | **Incremental** — only affected consumers revoke/assign partitions |
-| **Assignment** | Client-side (consumers compute assignment) | **Server-side** (broker computes assignment) — new `ShareGroup` |
-| **State** | Consumers track assignment locally | Assignment tracking moved to broker |
-| **Performance** | Full rebalance can take seconds for large groups | Sub-second rebalances, no global pause |
-
-**Why it matters:**
-- Large consumer groups (1000+) no longer pause processing during
-  rebalances
-- Adding/removing consumers is near-transparent
-- Server-side assignment enables smarter load balancing
-
-### KIP-405: Tiered Storage
-
-Separates **hot** (local broker disk) from **cold** (S3/GCS/ABS) data,
-enabling near-infinite retention without adding broker nodes.
-
-```
-Before tiered storage:
-  broker disk ───► partition data (all of it, forever)
-
-After tiered storage:
-  broker disk (fast, local) ──► recent data (hot tier)
-          │
-          ▼
-  S3/GCS/ABS (cheap, infinite) ──► historical data (cold tier)
-```
-
-| Tier | Storage | Performance | Retention | Cost |
-|---|---|---|---|---|
-| **Hot** (leader/follower disks) | Local SSD/HDD | Low latency | Hours to days | High ($/GB) |
-| **Cold** (S3/GCS/ABS) | Object store | Higher latency (SELECT on read) | Months to years | Low ($/GB) |
-
-**When to use:**
-- Compliance requires multi-year retention
-- Reprocessing historical data without re-ingesting
-- Reducing broker disk cost (largest Kafka operational expense)
-
-**How it works at read time:**
-```python
-# Consumer code doesn't change — broker fetches from tier transparently
-consumer.subscribe(['orders'])
-for msg in consumer:
-    process(msg)  # May come from hot tier (local) or cold tier (S3)
-```
-
-**DE interview answer:**
-> "Tiered Storage moves older segment files from broker-attached disks
-> to S3. Consumers still read from any offset — the broker fetches from
-> S3 transparently. It decouples retention from storage cost."
-
-### KRaft Maturity (ZooKeeper Removal)
-
-| Version | KRaft Status |
-|---|---|
-| Kafka 3.3 (2022) | KRaft production-ready for new clusters |
-| Kafka 3.5 (2023) | KRaft self-balancing, JBOD support |
-| Kafka 4.0 (2025) | ZooKeeper code **removed entirely** |
-
-> [!WARNING]
-> If you see a job posting or blog from 2023 mentioning ZooKeeper,
-> that is **obsolete**. Kafka 4.0 has no ZK code. KRaft uses a
-> Raft-based controller quorum.
-
----
-
-## 12. Resources
+## 15. Resources
 
 - [Kafka Crash Course (YouTube)](https://youtu.be/DU8o-OTeoCc?si=Ce1_j7LbREdRqSNL) — quick visual refresher
 - [Kafka Deep Dive (Hello Interview)](https://www.hellointerview.com/learn/system-design/deep-dives/kafka) — system-design angle on internals
