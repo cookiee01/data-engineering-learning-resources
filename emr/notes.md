@@ -136,16 +136,30 @@ Legacy configuration (for reference only):
 - Remove any SQS notification queues configured for inconsistency alerts
 - Verify no cost impact from unused DynamoDB provisioned capacity
 
-**EMRFS S3 Magic Committer:**
+**S3 Committers — The Multipart Upload Trick:**
 
-The magic committer avoids the rename-heavy `FileOutputCommitter` algorithm (which writes to a `_temporary/` dir then renames). Instead, it:
+Standard Spark committers (`FileOutputCommitter`) write task output to a `_temporary/` directory, then **rename** to the final path. On S3, rename is not atomic — it is a **COPY + DELETE** of every byte. For a 10 GB file, that means 10 GB re-copied over the network at commit time.
 
-1. Writes task output directly to the final S3 path with a unique `.$taskAttemptId` suffix
-2. On commit, simply lists existing files and drops the suffix
+Both optimized committers solve this using the same mechanism: **S3 Multipart Upload (MPU)**.
 
-This is critical for large jobs because rename on S3 is actually a COPY + DELETE, which is slow and expensive.
+```
+Task writes data blocks ──> S3 pending MPU parts (invisible to LIST/GET)
+         │
+         ▼
+Commit sends lightweight API call ──> CompleteMultipartUpload(UploadId)
+         │
+         ▼
+Data appears at final path instantly ──> Zero bytes moved or copied
+```
 
-Enable with:
+No bytes are copied at commit time — it is purely an **API control-plane operation**.
+
+---
+
+**EMRFS S3 Magic Committer** (`com.amazon.emr.magiccommitter.MagicCommitProtocol`):
+
+Task data is streamed as MPU parts tagged with a `.$taskAttemptId` suffix in the pending upload metadata. On commit, it resolves those pending MPU IDs to the clean final path names via `CompleteMultipartUpload`.
+
 ```json
 {
   "spark.sql.sources.commitProtocolClass": "com.amazon.emr.magiccommitter.MagicCommitProtocol",
@@ -153,8 +167,50 @@ Enable with:
 }
 ```
 
-> [!WARNING]
-> The magic committer is **EMR-only**. If you migrate to open-source Spark on EC2 or EKS, you must switch to the standard committer. EMR 7.x deprecates the magic committer in favor of the S3 directory committer, which achieves similar performance without EMR-specific code.
+| Aspect | Detail |
+|---|---|
+| Mechanism | Writes MPU parts under a pending key with `.$taskAttemptId` suffix; commit completes MPU to final key |
+| Data visibility mid-job | Files visible at destination path with temporary suffix |
+| Portability | **EMR only** — proprietary code |
+| Status | **Deprecated** in EMR 7.x |
+
+---
+
+**S3 Directory Committer** (`org.apache.spark.internal.io.cloud.PathOutputCommitProtocol`):
+
+The open-source replacement built into Apache Hadoop's S3A filesystem. During task execution, data is stored as uncommitted MPU parts — **completely invisible** in S3. The Spark driver collects MPU UploadIds from all tasks and issues a batch `CompleteMultipartUpload` at job commit.
+
+```json
+{
+  "spark.hadoop.fs.s3a.committer.name": "directory",
+  "spark.sql.sources.commitProtocolClass": "org.apache.spark.internal.io.cloud.PathOutputCommitProtocol",
+  "spark.sql.parquet.output.committer.class": "org.apache.spark.internal.io.cloud.BindingPathOutputCommitter"
+}
+```
+
+For `partitionBy(...)` datasets, use `"partitioned"` instead of `"directory"` for per-partition optimization.
+
+| Aspect | Detail |
+|---|---|
+| Mechanism | Streams MPU parts invisibly; driver completes all MPUs at job commit |
+| Data visibility mid-job | **None** — files appear only after job commit |
+| Portability | Any Spark/Hadoop environment (EMR, EC2, EKS, Databricks, GCP) |
+| Status | **Recommended** in EMR 7.x+ |
+
+---
+
+**Comparison:**
+
+| Attribute | Standard FileOutputCommitter | EMRFS Magic Committer | S3 Directory Committer |
+|---|---|---|---|
+| Commit operation | COPY + DELETE per file | `CompleteMultipartUpload` (metadata only) | `CompleteMultipartUpload` (metadata only) |
+| Data copied at commit | Yes — full dataset | Zero bytes | Zero bytes |
+| Portability | Any platform | EMR only | Any platform (open-source) |
+| Mid-job file visibility | In `_temporary/` dir | Visible with suffix | Invisible |
+| EMR 7.x status | Available | Deprecated | Recommended |
+
+> [!TIP]
+> Migrating from Magic Committer to Directory Committer is a config change only — the underlying MPU mechanism is identical. The Directory Committer is actually **more robust**: it avoids mid-job file visibility (no partial reads) and works on any Spark platform.
 
 **Performance tips for EMRFS:**
 
