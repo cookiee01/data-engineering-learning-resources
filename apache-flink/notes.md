@@ -7,24 +7,59 @@
 
 ## Table of Contents
 
-1. [Why Flink? (vs Spark Streaming)](#1-why-flink-vs-spark-streaming)
-2. [Architecture: JobManager, TaskManager, Slots](#2-architecture-jobmanager-taskmanager-slots)
-3. [Execution Model: Streaming-First, Not Micro-Batch](#3-execution-model-streaming-first-not-micro-batch)
-4. [State and State Backends](#4-state-and-state-backends)
-5. [Checkpoints and Savepoints](#5-checkpoints-and-savepoints)
-6. [Watermarks and Event Time](#6-watermarks-and-event-time)
-7. [Windowing](#7-windowing)
-8. [Backpressure](#8-backpressure)
-9. [Exactly-Once Sinks](#9-exactly-once-sinks)
-10. [Restart Strategies and Failure Recovery](#10-restart-strategies-and-failure-recovery)
-11. [Operational Playbook](#11-operational-playbook)
-12. [Quick Reference Cheatsheet](#12-quick-reference-cheatsheet)
-13. [Flink 2.0 and What Changed](#13-flink-20-and-what-changed)
-14. [Resources](#14-resources)
+1. [The Opening Question](#1-the-opening-question)
+2. [Why Flink? (vs Spark Streaming)](#2-why-flink-vs-spark-streaming)
+3. [Architecture: JobManager, TaskManager, Slots](#3-architecture-jobmanager-taskmanager-slots)
+4. [Execution Model: Streaming-First, Not Micro-Batch](#4-execution-model-streaming-first-not-micro-batch)
+5. [State and State Backends](#5-state-and-state-backends)
+6. [Checkpoints and Savepoints](#6-checkpoints-and-savepoints)
+7. [Watermarks and Event Time](#7-watermarks-and-event-time)
+8. [Windowing](#8-windowing)
+9. [Backpressure](#9-backpressure)
+10. [Exactly-Once Sinks](#10-exactly-once-sinks)
+11. [Restart Strategies and Failure Recovery](#11-restart-strategies-and-failure-recovery)
+12. [Real Interview Questions](#12-real-interview-questions)
+13. [Decision Trees](#13-decision-trees)
+14. [Operational Playbook](#14-operational-playbook)
+15. [Quick Reference — Interview Edition](#15-quick-reference--interview-edition)
+16. [Flink 2.0 and What Changed](#16-flink-20-and-what-changed)
+17. [Resources](#17-resources)
 
 ---
 
-## 1. Why Flink? (vs Spark Streaming)
+## 1. The Opening Question
+
+**Question:** *"Design a system that detects fraudulent credit-card transactions within 500 milliseconds of the swipe."*
+
+```mermaid
+flowchart LR
+    SWIPE["Card swipes<br/>50K events/sec"] --> K["Kafka<br/>topic: txns<br/>keyed by card_id"]
+    K --> F["Flink Job"]
+    subgraph F
+        S1["Source<br/>(Kafka, event-time<br/>watermarks)"]
+        S2["keyBy(card_id)"]
+        S3["Keyed ProcessFunction<br/>state: last-10-min velocity,<br/>last location, avg amount"]
+        S4["Alert sink<br/>(Kafka: fraud-alerts)"]
+        S1 --> S2 --> S3 --> S4
+    end
+    F --> DB[("RocksDB state<br/>(per-card features)<br/>incremental checkpoints 10s")]
+
+    S3 -.->|"rules:<br/>>5 txns in 2 min<br/>location jump >1000 km/hr<br/>amount >10x avg"| ALERT["Alert emitted<br/>< 300 ms after event<br/>enters the job"]
+```
+
+**Answer structure:**
+```
+1. Why Flink: sub-second latency + per-card keyed state + event-time
+   correctness — the three things micro-batch can't give you together
+2. Keyed state holds rolling features per card (RocksDB, TB-scale OK)
+3. Watermarks: bounded out-of-orderness (5s) + withIdleness (1 min)
+4. Exactly-once: checkpoint 10s + Kafka transactional sink
+5. Recovery: restart from checkpoint, replay ≤10s of Kafka, no dup alerts
+```
+
+---
+
+## 2. Why Flink? (vs Spark Streaming)
 
 ### The Core Difference
 
@@ -54,18 +89,7 @@
 
 ---
 
-## 2. Architecture: JobManager, TaskManager, Slots
-
-```
-Client
-  │  (submit job graph)
-  ▼
-JobManager
-
-TaskManager (worker)
-  └─ Task Slot 1 ── operator chain (source → map → sink)
-  └─ Task Slot 2 ── operator chain
-```
+## 3. Architecture: JobManager, TaskManager, Slots
 
 ```mermaid
 flowchart LR
@@ -107,7 +131,7 @@ flowchart LR
 
 ---
 
-## 3. Execution Model: Streaming-First, Not Micro-Batch
+## 4. Execution Model: Streaming-First, Not Micro-Batch
 
 ### Pipelined Execution
 
@@ -133,7 +157,7 @@ Flink runs batch jobs on the same engine by treating bounded sources as "streams
 
 ---
 
-## 4. State and State Backends
+## 5. State and State Backends
 
 ### Types of State
 
@@ -177,7 +201,7 @@ desc.enableTimeToLive(ttl);
 
 ---
 
-## 5. Checkpoints and Savepoints
+## 6. Checkpoints and Savepoints
 
 ### Checkpoints (Automatic, Restore-Driven)
 
@@ -225,7 +249,7 @@ sequenceDiagram
 
 ---
 
-## 6. Watermarks and Event Time
+## 7. Watermarks and Event Time
 
 ### The Watermark Mechanism
 
@@ -284,7 +308,7 @@ WatermarkStrategy
 
 ---
 
-## 7. Windowing
+## 8. Windowing
 
 ### Window Types
 
@@ -309,7 +333,7 @@ A sliding window of size 1 hour, slide 5 minutes creates **12 overlapping window
 
 ---
 
-## 8. Backpressure
+## 9. Backpressure
 
 ### How Flink Manages It
 
@@ -338,7 +362,7 @@ Producer ──[buffer]──► Consumer
 
 ---
 
-## 9. Exactly-Once Sinks
+## 10. Exactly-Once Sinks
 
 ### Two-Phase Commit (2PC) Pattern
 
@@ -369,7 +393,7 @@ Flink's exactly-once guarantee to external systems uses the checkpoint barrier a
 
 ---
 
-## 10. Restart Strategies and Failure Recovery
+## 11. Restart Strategies and Failure Recovery
 
 | Strategy | Config | Behavior |
 | :--- | :--- | :--- |
@@ -393,7 +417,221 @@ Flink's exactly-once guarantee to external systems uses the checkpoint barrier a
 
 ---
 
-## 11. Operational Playbook
+## 12. Real Interview Questions
+
+### Q1: "Checkpoints take 8 minutes and your interval is 10 minutes. A TaskManager dies. How much data reprocessing happens, and how long until the job is healthy again?"
+
+```
+Timeline math:
+
+t=0:    checkpoint N completes
+t=8m:   checkpoint N+1 starts (still running...)
+t=10m:  TaskManager dies → job restarts from checkpoint N
+
+Reprocessing window = events since checkpoint N = 10 minutes of Kafka data
+  (NOT 8 — the interval, because N+1 never completed)
+
+Recovery time =
+  job graph redeploy:      ~30-60s (image pull if new pod)
+  + state restore:         state_size / restore_throughput
+                           (100 GB from S3 @ ~200 MB/s ≈ 8 min)
+  + catch-up processing:   10 min of backlog at 2-3x normal rate
+                           ≈ 3-5 min (if you have headroom)
+  ≈ 12-14 minutes total
+
+If 12 min of downtime is unacceptable:
+  → shrink checkpoint interval (smaller state per checkpoint,
+    faster restore, less catch-up)
+  → keep spare capacity so catch-up runs at 3x not 1.2x
+```
+
+### Q2: "Your job's state grew from 10 GB to 800 GB over 3 months. Walk through the causes."
+
+```mermaid
+flowchart TD
+    GROW["State growing unboundedly"]
+    GROW --> C1{"Keyed state without TTL?"}
+    GROW --> C2{"Window state with<br/>allowed lateness?"}
+    GROW --> C3{"New keys appearing<br/>faster than old keys expire?"}
+    GROW --> C4{"joinState / buffer<br/>for stream-stream join?"}
+
+    C1 -->|"Most common"| F1["Fix: StateTtlConfig on every<br/>state descriptor. If 'we might<br/>need it someday' → archive to<br/>lake, don't keep in Flink"]
+    C2 --> F2["Fix: allowedLateness keeps every<br/>window alive. Reduce lateness<br/>or move to side-output"]
+    C3 --> F3["Fix: cardinality audit —<br/>count distinct keys/day.<br/>Bot traffic on user_id keyBy<br/>is a classic explosion"]
+    C4 --> F4["Fix: interval joins need state<br/>for the join window. Bound it:<br/>join only if |t1-t2| < 1 hour"]
+```
+
+**The rule:** Flink state is a cache with an explicit eviction policy,
+not a database. Every `ValueStateDescriptor` without a TTL is a bet
+that keys stop arriving — audit that bet quarterly.
+
+### Q3: "Kafka events arrive up to 5 minutes out of order. Business wants per-minute revenue dashboards. Design the watermark strategy."
+
+```
+Requirements tension:
+  - 5-min out-of-orderness → watermark delay must be ~5 min
+  - Per-minute dashboards → want windows to fire fast
+
+Design:
+  WatermarkStrategy
+    .forBoundedOutOfOrderness(Duration.ofMinutes(5))
+    .withIdleness(Duration.ofMinutes(1))
+
+Result:
+  - 1-minute tumbling windows fire ~5 minutes late
+  - Revenue per minute is correct (events placed by event time)
+  - Dashboard lag = watermark delay (5 min) + processing (~1s)
+
+If 5-min dashboard lag is unacceptable:
+  Option A: fire early + refine:
+    trigger: on-time fire + allowedLateness(5 min) with re-fire
+    → dashboard shows provisional numbers immediately, corrects
+      as late events arrive. State cost: windows live 5 extra min.
+  Option B: two outputs:
+    processing-time stream → instant approximate dashboard
+    event-time stream → authoritative numbers 5 min later
+```
+
+### Q4: "Flink vs Kafka Streams — a team asks which to build on."
+
+| Dimension | Flink | Kafka Streams |
+|---|---|---|
+| **Deployment** | Cluster (JM + TMs) or K8s operator | Library embedded in your app |
+| **State** | RocksDB, checkpointed, savepoints, rescale via savepoint | RocksDB local + changelog topics; rescale = full re-restore |
+| **Event time** | Watermarks, first-class | Timestamps + grace periods, less flexible |
+| **Exactly-once** | Checkpoint + 2PC sinks (Kafka, Iceberg, JDBC) | EOS via Kafka transactions (Kafka-to-Kafka only) |
+| **SQL** | Flink SQL (mature) | ksqlDB (separate product) |
+| **Ops surface** | You run a cluster | You run app instances (simpler) |
+| **Best for** | Complex streaming topologies, non-Kafka sinks, TB state, SQL | Kafka-in/Kafka-out microservices, JVM teams |
+
+**Interview answer:** "Kafka Streams for Kafka-centric microservices
+where a library beats a cluster. Flink when the topology is complex,
+the sink isn't Kafka, state is huge, or analysts need SQL over streams."
+
+### Q5: "After a restart, your Kafka sink emits duplicates. The job was 'exactly-once.' Why?"
+
+**Diagnosis:**
+```mermaid
+flowchart LR
+    D["Duplicates after recovery"] --> C1{"delivery.guarantee?"}
+    C1 -->|"AT_LEAST_ONCE"| F1["Expected behavior —<br/>this setting replays<br/>uncommitted records"]
+    C1 -->|"EXACTLY_ONCE"| C2{"Checkpoint actually<br/>completing?"}
+    C2 -->|"Failing/timing out"| F2["Records written but never<br/>committed → on restart,<br/>transaction aborted BUT..."]
+    C2 -->|"Completing"| C3{"Downstream reading with<br/>isolation.level?"}
+    C3 -->|"read_uncommitted"| F3["Downstream sees aborted/<br/>uncommitted records.<br/>Fix: isolation.level=<br/>read_committed"]
+```
+
+**The classic trap:** Flink's EXACTLY_ONCE Kafka sink writes records
+inside Kafka transactions that commit on checkpoint completion. A
+downstream consumer with `isolation.level=read_uncommitted` (the
+default!) sees uncommitted records — and if the job crashes before
+checkpoint, those aborted records were already read and processed.
+**Exactly-once is a chain: it breaks at the weakest config.**
+
+### Q6: "Join two Kafka streams: clicks (10M/min) and impressions (1M/min). A click joins to the impression from up to 30 minutes earlier. How?"
+
+**Answer — interval join with bounded state:**
+
+```java
+clicks.keyBy(c -> c.adId)
+  .intervalJoin(impressions.keyBy(i -> i.adId))
+  .between(Time.minutes(-30), Time.minutes(0))
+  .process(new JoinFunction() { ... });
+```
+
+```
+State math (the part interviews probe):
+  impressions side: 1M/min × 30 min = 30M impression records in state
+  clicks side:      10M/min × 30 min = 300M click records in state
+    (clicks must wait for late impressions too)
+  → RocksDB mandatory; heap OOMs immediately
+
+Alternatives when state is too big:
+  1. Temporal table join if one side is a slowly-changing dimension
+     (impressions aren't — they're events)
+  2. Lookup join to an external store (Redis/Aerospike) for the
+     impression side — trade: external dependency, no replay
+  3. Enrich offline: accept 1-hour latency, join in Iceberg batch
+```
+
+### Q7: "Your session-window job returns wrong results after a parallelism change from 4 to 8. What broke?"
+
+**Diagnosis:**
+```
+Changing parallelism requires a savepoint-based restart.
+If you started fresh (no savepoint):
+  → all keyed state was discarded → sessions restart from scratch
+  → windows that were mid-session lose their start time
+If you restored from a savepoint but the job graph changed:
+  → operator UIDs changed or were never set
+  → state can't map to the new graph → silently dropped
+
+Fix going forward:
+1. Always set explicit UIDs on operators:
+   stream.keyBy(...).window(...).uid("session-window-v1")
+2. Rescale ONLY from savepoints:
+   flink stop --savepointPath s3://... jobId
+   flink run -p 8 -s s3://savepoint job.jar
+3. After restore, verify state: check restored checkpoint size
+   in the UI — zero-size restore = state was dropped
+```
+
+### Q8: "A Flink SQL query with a GROUP BY produces growing state and eventually OOMs. But it's SQL — where's the state?"
+
+**Answer:** Every stateful SQL operator keeps state:
+
+| SQL operator | State kept | Grows until |
+|---|---|---|
+| `GROUP BY` (non-windowed) | One accumulator row per distinct key | Never — **infinite by design** |
+| Windowed `GROUP BY` | Window accumulators per key per window | Window end + allowed lateness |
+| `JOIN` (regular) | Both sides' rows | Never — **infinite by design** |
+| Temporal join | Right side (versioned table) rows | Configured retention |
+| `ROW_NUMBER` dedup | Latest row per key | Never — **infinite by design** |
+
+**Fix for the non-windowed GROUP BY:**
+```sql
+-- Configure idle state retention (Flink SQL):
+SET 'table.exec.state.ttl' = '24h';
+-- Keys idle for 24h are evicted. Correct only if your keys
+-- genuinely go quiet — a wrong-TTL produces silently wrong counts.
+```
+
+**The interview insight:** "Flink SQL hides state, not eliminates it.
+Any streaming SQL without windows or temporal bounds is an
+unbounded-state query. Either set `table.exec.state.ttl` knowingly,
+or restructure with windows."
+
+---
+
+## 13. Decision Trees
+
+### 13.1 State Backend Selection
+
+```mermaid
+flowchart TD
+    START["Expected state size<br/>per TaskManager?"]
+    START -->|"< 5 GB, predictable<br/>key distribution"| HEAP["HashMap/Heap backend<br/>fastest access<br/>checkpoint = full snapshot"]
+    START -->|"> 5 GB or unknown<br/>or TB-scale"| ROCKS["RocksDB backend<br/>incremental checkpoints<br/>serialize on access"]
+    ROCKS --> LAT{"Latency-sensitive?<br/>(<50ms P99)"}
+    LAT -->|"Yes"| TUNE["Tune RocksDB:<br/>block cache ↑, bloom filters ON,<br/>consider partitioned state"]
+    LAT -->|"No"| DEFAULT["Default RocksDB config<br/>+ incremental checkpoints"]
+```
+
+### 13.2 Exactly-Once Sink Strategy
+
+```mermaid
+flowchart TD
+    START["What is the sink?"]
+    START -->|"Kafka"| K["Transactional sink<br/>delivery.guarantee=EXACTLY_ONCE<br/>+ downstream read_committed"]
+    START -->|"Iceberg/Paimon"| I["Native — metadata commit<br/>on checkpoint. Nothing to configure"]
+    START -->|"JDBC"| J["XA 2PC sink OR<br/>idempotent upsert by natural key"]
+    START -->|"S3 files"| S3["At-least-once FileSink<br/>+ dedup downstream<br/>OR put Iceberg in between"]
+    START -->|"Elasticsearch / Redis"| EXT["Idempotent writes:<br/>doc ID / key = deterministic<br/>from event → replay-safe"]
+```
+
+---
+
+## 14. Operational Playbook
 
 ### Symptom → Likely Cause → First Action
 
@@ -423,7 +661,7 @@ Flink's exactly-once guarantee to external systems uses the checkpoint barrier a
 
 ---
 
-## 12. Quick Reference Cheatsheet
+## 15. Quick Reference — Interview Edition
 
 | Question | Short answer |
 | :--- | :--- |
@@ -439,10 +677,17 @@ Flink's exactly-once guarantee to external systems uses the checkpoint barrier a
 | Slot count vs parallelism? | Parallelism × slot sharing = slots needed. Default: all operators share slots. |
 | Restart after failure? | Default: infinite retries, 1s delay, resume from last checkpoint. |
 | Source offset persists where? | Operator state (so it is checkpointed alongside everything else). |
+| Recovery time formula? | Redeploy + state restore (state_size / throughput) + catch-up on missed events |
+| State growing unbounded? | Missing TTL on keyed state (most common), allowed lateness, key cardinality explosion, unbounded join buffers |
+| Duplicates after recovery w/ EOS sink? | Downstream using `isolation.level=read_uncommitted` (Kafka default!) — switch to `read_committed` |
+| Rescale parallelism safely? | Only via savepoint; always set operator `.uid()` or state can't map to the new graph |
+| Non-windowed SQL GROUP BY state? | Infinite by design — set `table.exec.state.ttl` knowingly or restructure with windows |
+| Out-of-order events? | Watermark delay = max expected lateness; dashboard lag = watermark delay + processing |
+| Flink vs Kafka Streams? | KStreams: library, Kafka-in/out microservices. Flink: complex topologies, non-Kafka sinks, TB state, SQL |
 
 ---
 
-## 13. Flink 2.0 and What Changed
+## 16. Flink 2.0 and What Changed
 
 Flink 2.0 (released 2025) is the first major version bump since 1.0
 (2016). It is not a rewrite — it is Flink 1.x with materialized
@@ -489,7 +734,7 @@ improvements that change how you think about the platform.
 
 ---
 
-## 14. Resources
+## 17. Resources
 
 - [Flink Documentation — Concepts](https://nightlies.apache.org/flink/flink-docs-stable/docs/concepts/overview/) — official: stateful, streaming-first execution model
 - [Flink Documentation — Operations](https://nightlies.apache.org/flink/flink-docs-stable/docs/ops/overview/) — checkpointing, backpressure, monitoring
