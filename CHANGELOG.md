@@ -6,6 +6,7 @@ The format is based on Keep a Changelog.
 
 ## [Unreleased]
 ### Added
+- Rewrote `emr/notes.md` from link stub to full EMR notes — architecture (master/core/task nodes, YARN, EMRFS), cluster types (transient/long-running/managed scaling), instance procurement (on-demand/spot/reserved, instance fleets), EMR on EKS, EMR Serverless, release labels/application versions, key interview answers, Mermaid architecture diagram
 - Added `data-governance/notes.md` — data governance and quality (catalog comparison: Unity Catalog/Polaris/DataHub, lineage levels, OpenLineage standard, six quality dimensions, Great Expectations/dbt tests/Soda, data contracts with YAML schema, observability five pillars, SLA/SLO/SLI for data pipelines, column-level security and PII classification, interview cheatsheet)
 - Added Databricks patterns section to `apache-spark-pyspark/notes.md` (Unity Catalog, Delta Lake, Delta Live Tables, Auto Loader, Databricks SQL/Photon/Serverless, Databricks vs open-source Spark comparison)
 - Added `sql/notes.md` — SQL deep-dive for data engineering (query execution order, window functions with frame specs, JOIN strategies and algorithms, CTEs and recursive CTEs, aggregation nuances, execution plan reading, anti-patterns, partitioning/clustering, interview cheatsheet)

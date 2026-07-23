@@ -30,6 +30,8 @@ This is the navigation hub for the repo.
   - `dbt/notes.md` (models, sources, tests, materializations, Jinja, incremental, CI/CD, Snowflake/Databricks patterns)
 - Snowflake
   - `snowflake/notes.md` (architecture, virtual warehouses, micro-partitions, clustering, time travel, zero-copy clone, cost management, Snowpipe, streams/tasks)
+- EMR / Hadoop
+  - `emr/notes.md` (architecture, cluster types, node roles, instance fleets, EMR on EKS, EMR Serverless, release versions, key interview answers)
 - AWS Data Engineering
   - `aws-data-engineering/notes.md` (S3, Glue, EMR, Redshift, Lambda, Step Functions, Kinesis, IAM, cost optimization, architecture patterns)
 - Data Governance & Quality
