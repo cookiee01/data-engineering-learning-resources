@@ -2,6 +2,33 @@
 
 **Targets Spark 3.x (primarily 3.2+ where AQE is enabled by default) with Spark 4.x coverage in §15.** A few sections (push-based shuffle, star join) reference Spark 3.2–3.3 features. The core concepts (Catalyst, Tungsten, memory model, shuffle) apply to 2.x+ as well. GPU acceleration via RAPIDS covered in §16.
 
+## 0. The Opening Question
+
+**Question:** *"Your Spark job processes 500 GB and takes 4 hours. The same job took 40 minutes last month. Walk me through your debugging process."*
+
+```mermaid
+flowchart TD
+    SLOW["Job 6x slower"]
+    SLOW --> S1["Step 1: Compare Spark UI<br/>to last month's run"]
+    S1 --> Q1{"What changed?"}
+
+    Q1 -->|"Input data 6x larger"| D1["Not a Spark problem —<br/>check upstream volume spike"]
+    Q1 -->|"Same data, more shuffle"| D2["Plan changed: check AQE<br/>decisions, join strategy flip,<br/>new Exchange nodes in explain()"]
+    Q1 -->|"Skew appeared"| D3["One task takes hours:<br/>Stages tab → task duration<br/>distribution → salting/AQE skew"]
+    Q1 -->|"Spill to disk"| D4["Memory pressure: execution<br/>memory too small, or<br/>partition count too low"]
+    Q1 -->|"Cluster smaller"| D5["Executors lost/pending:<br/>dynamic allocation, spot loss,<br/>queue contention"]
+
+    D2 --> FIX1["Fix: force broadcast with hint,<br/>or ANALYZE TABLE for stats,<br/>or pin join strategy"]
+    D3 --> FIX2["Fix: salt the skewed key or<br/>enable AQE skew partition split"]
+    D4 --> FIX3["Fix: spark.sql.shuffle.partitions ↑,<br/>executor memory ↑"]
+```
+
+**The framework:** Compare before/after on four axes — **data volume,
+plan, skew, resources**. 90% of "job got slower" cases are one of these
+four, and the Spark UI stages tab tells you which within 2 minutes.
+
+---
+
 ## 1. Catalyst Optimizer
 
 Catalyst is a rule-based optimizer (with some cost-based decisions) that converts a logical plan into an optimized physical plan through four phases.
@@ -897,7 +924,232 @@ GROUP BY customer_id;
 
 ---
 
-## 18. Curated Resources
+## 18. Real Interview Questions
+
+### Q1: "Your groupBy on 1 billion rows spills 500 GB to disk. Diagnose and fix."
+
+```mermaid
+flowchart TD
+    SPILL["500 GB spill"]
+    SPILL --> C1{"spark.sql.shuffle.partitions?"}
+    C1 -->|"200 (default)"| P1["1B rows / 200 = 5M rows per partition<br/>aggregate state per partition too big<br/>→ increase to 2000-4000"]
+    C1 -->|"Already high"| C2{"Key cardinality?"}
+    C2 -->|"Few distinct keys<br/>(e.g., country)"| P2["Low-cardinality groupBy:<br/>partial aggregation can't reduce<br/>much → skew by design.<br/>Two-phase: salt → partial agg →<br/>unsalt → final agg"]
+    C2 -->|"High cardinality"| P3["Execution memory per task<br/>too small → raise executor memory<br/>or spark.memory.fraction"]
+```
+
+**The math interviewers want:**
+```
+spill happens when: rows_per_task × agg_state_per_row > execution_memory
+1B rows / 200 partitions = 5M rows/task
+5M × 100 bytes state = 500 MB > ~2.4 GB execution memory budget? close
+→ 800 partitions: 1.25M rows/task × 100 B = 125 MB ✓ safe
+```
+
+### Q2: "A join that used to broadcast now does sort-merge after a table grew. Nothing in code changed. Explain and fix."
+
+**Diagnosis:**
+```
+Broadcast threshold: spark.sql.autoBroadcastJoinThreshold = 10 MB (default)
+Small table grew past 10 MB → planner flipped to SMJ →
+now BOTH sides shuffle → 10x slower
+```
+
+**Fixes (in order):**
+```python
+# 1. Hint it explicitly (you know it's still small enough)
+df.join(broadcast(small_df), "key")
+
+# 2. Raise threshold if the table is legitimately small
+spark.conf.set("spark.sql.autoBroadcastJoinThreshold", "100m")
+
+# 3. If AQE is on, check why runtime stats didn't catch it —
+# AQE demotes BHJ→SMJ when observed size exceeds threshold;
+# verify the table stats are fresh (ANALYZE TABLE)
+```
+
+### Q3: "Count the shuffles in this plan and justify each one."
+
+```python
+(df1.join(df2, "user_id")
+    .filter(col("country") == "IN")
+    .groupBy("product_id").agg(sum("amount"))
+    .orderBy("sum(amount)", ascending=False)
+    .limit(100))
+```
+
+```
+Shuffle 1: join on user_id → hash exchange on user_id (both sides)
+Shuffle 2: groupBy product_id → hash exchange on product_id
+Shuffle 3: orderBy → range exchange (global sort)
+           (+ limit pushed into partial stages)
+
+Filter: no shuffle (narrow)
+limit: no additional full shuffle (partial limit per partition
+       then final limit on driver — one more small gather)
+
+Total: 3 shuffles. Each is justified: two hash re-keys + one global sort.
+```
+
+### Q4: "Your job fails with FetchFailedException at hour 3. What is it, and why does increasing memory not help?"
+
+**Answer:**
+```
+FetchFailedException = a reduce task failed to fetch shuffle blocks
+from a map-side executor.
+
+Causes in order of frequency:
+1. Executor LOST (OOM-killed, preempted spot instance, GC death spiral)
+   → its shuffle blocks are gone → recompute
+2. Shuffle service overloaded (external shuffle service down/slow)
+3. Network timeouts (shuffle.io.maxRetries exhausted)
+
+Why memory doesn't help: the failure is on the MAP side executor
+that died, not the reduce side. More memory might prevent the OOM
+that killed it — but if it's spot preemption, memory is irrelevant.
+
+Real fixes:
+- spark.shuffle.io.maxRetries = 10, retryWait = 60s
+- spark.network.timeout = 600s
+- Spot: enable decommissioning (spark.decommission.enabled)
+- Persistent fix: reduce single-executor shuffle block size
+  (more partitions = smaller blocks per fetch)
+```
+
+### Q5: "You need to write exactly one output file per partition key to S3, and downstream Hive requires `dt=...` directory layout. Code it."
+
+```python
+(df
+ .repartition(col("dt"))            # one task per dt value → one file per dt
+ .write
+ .partitionBy("dt")                  # writes dt=2026-01-01/ directory layout
+ .mode("overwrite")                  # or "dynamic" overwrite for partition-level
+ .option("partitionOverwriteMode", "dynamic")  # only touch written partitions
+ .parquet("s3://bucket/warehouse/events/"))
+```
+
+**Interview follow-ups:**
+- `repartition(col)` vs `repartition(n, col)`: former lets Spark pick count
+- `partitionOverwriteMode=dynamic`: only replaces partitions present in
+  the DataFrame — static overwrite wipes the whole table. This is the
+  classic "I deleted the table" bug.
+- One file per partition guarantees: `repartition` before write, and
+  beware AQE coalescing changing file counts at runtime.
+
+### Q6: "Explain why `df.cache()` didn't speed up your iterative job."
+
+```mermaid
+flowchart TD
+    CACHE["cache() not helping"]
+    CACHE --> R1{"Actually cached?"}
+    R1 -->|"Storage tab empty"| F1["Lazy: cache only materializes<br/>after an ACTION. You cached<br/>then kept transforming —<br/>nothing was stored yet"]
+    R1 -->|"Cached but re-computed"| F2["Evicted: storage memory<br/>pressure evicted blocks<br/>(MEMORY_ONLY spills nowhere;<br/>use MEMORY_AND_DISK)"]
+    R1 -->|"Cached, still slow"| F3["Cache wasn't on the reuse path:<br/>you cached df_A but iterate on<br/>df_B derived differently —<br/>plans don't match, cache missed"]
+```
+
+**Rule:** cache at the exact DataFrame that multiple downstream actions
+branch from, call an action to materialize, and verify in the Storage
+tab before assuming.
+
+### Q7: "PySpark UDF is 10x slower than the same logic in Spark SQL functions. Why, and what are the options?"
+
+```
+Regular Python UDF:
+  JVM → serialize rows → socket → Python worker → deserialize →
+  run → serialize back → JVM
+  Cost: per-row serialization + no Catalyst optimization + no codegen
+
+Options, fastest first:
+1. Built-in functions (expr/col functions): stay in JVM, codegen'd
+2. Pandas UDF (vectorized): batch transfer via Arrow columnar format
+   — 10-100x faster than row-at-a-time Python UDF
+3. Scala/Java UDF: JVM-native (but breaks Catalyst inlining less
+   than Python; still opaque to optimizer)
+4. mapInPandas / mapPartitions: for stateful per-partition logic
+
+Interview line: "A Python UDF is an opaque black box to Catalyst —
+no pushdown, no pruning through it, and every row crosses the
+JVM-Python boundary twice."
+```
+
+### Q8: "Design a job that joins a 2 TB fact table with a 50 GB dimension daily. Dimension changes slowly."
+
+**Answer:**
+```
+Day-0 thinking: 50 GB is too big for broadcast (default 10 MB, even
+tuned ~a few GB). SMJ shuffles 2 TB daily — expensive.
+
+Better designs:
+1. Bucket both tables by join key (bucket(256, key)):
+   → bucketed join = NO shuffle, co-located reads
+   → the standard answer for repeated large-large joins
+2. If dimension truly fits after filtering (only ~5% changes daily):
+   maintain a compacted 'current dimension' view that IS
+   broadcastable; join stream/batch against the small current view
+3. Delta/Iceberg MERGE instead of join-and-rewrite:
+   apply dimension updates as an upsert — skip the join entirely
+4. If using Spark 3.3+: Storage-Partitioned Joins on Iceberg
+   (spark.sql.sources.v2.bucketing.enabled) — bucketed join without
+   Hive bucketing ceremony
+```
+
+### Q9: "AQE didn't fix your skew. When does AQE fail?"
+
+```
+AQE skew handling requires:
+1. spark.sql.adaptive.skewJoin.enabled = true (default on)
+2. Skew detected as: partition > max(5x median, 256 MB)
+3. The skewed partition must be SPLITTABLE (sort-merge join side)
+
+AQE fails when:
+- Skew is in a groupBy aggregate, not a join (AQE skew = join-only)
+- One key holds 90% of data (single-key skew — splitting that
+  partition still leaves one giant key on one reducer)
+- Skew partition < threshold (just under 5x median → invisible)
+- Stats stale: CBO chose plan before seeing real sizes
+
+Single-key skew fix is ALWAYS manual: salt the key.
+```
+
+---
+
+## 19. Decision Trees
+
+### 19.1 Join Strategy Selection
+
+```mermaid
+flowchart TD
+    START["Join two tables"]
+    START --> S1{"Small side < autoBroadcast<br/>threshold (10 MB)?"}
+    S1 -->|"Yes"| BHJ["Broadcast Hash Join<br/>no shuffle of big side"]
+    S1 -->|"No, but close"| HINT["broadcast() hint<br/>if you're sure it fits"]
+    S1 -->|"No"| S2{"Both bucketed by<br/>join key?"}
+    S2 -->|"Yes"| BUCKET["Bucketed join<br/>zero shuffle"]
+    S2 -->|"No"| S3{"Repeated join<br/>on same key, daily?"}
+    S3 -->|"Yes"| MAKE["Bucket both tables once<br/>→ all future joins shuffle-free"]
+    S3 -->|"No"| SMJ["Sort-Merge Join<br/>(default) + AQE runtime<br/>optimizations"]
+```
+
+### 19.2 Skew Mitigation
+
+```mermaid
+flowchart TD
+    SKEW["One task much slower<br/>than others"]
+    SKEW --> WHERE{"Where?"}
+    WHERE -->|"Join"| J{"AQE skew split<br/>active?"}
+    WHERE -->|"groupBy"| G{"Single hot key<br/>or many?"}
+    WHERE -->|"Window"| W["Same as groupBy"]
+
+    J -->|"Partition splittable"| J1["AQE handles it<br/>(verify enabled)"]
+    J -->|"Single key dominates"| J2["Salt: key + rand(0..N)<br/>join, then repair<br/>by joining salted dim"]
+
+    G -->|"Many keys"| G1["AQE coalesce +<br/>more shuffle partitions"]
+    G -->|"Single hot key"| G2["Two-phase agg:<br/>salt → partial agg →<br/>unsalt → final agg"]
+```
+
+---
+
+## 20. Curated Resources
 
 ### Official Documentation
 - [Apache Spark Docs — Tuning](https://spark.apache.org/docs/latest/tuning.html) — start here for config reference
