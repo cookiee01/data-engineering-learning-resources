@@ -20,6 +20,16 @@ Keep notes concise, production-oriented, and easy to scan. Prefer lowercase, hyp
 
 For Python or PySpark snippets, use 4-space indentation, descriptive snake_case names, and small examples that can run against files in `apache-spark-pyspark/data/`.
 
+## Visual Content Guidelines
+Use Mermaid.js code blocks (` ```mermaid`) for architecture diagrams, flow charts, and sequence diagrams. Mermaid renders natively on GitHub and in MkDocs (via `pymdownx.superfences` custom fence configured in `mkdocs.yml`). Use `flowchart LR` for system architecture, `sequenceDiagram` for process flows, and `graph` for hierarchies. Color nodes with `style N fill:#hex,color:#hex` for visual distinction. Keep diagrams concise — 5–10 nodes max per diagram, focused on a single concept.
+
+Use GitHub-flavored admonitions sparingly for emphasis:
+- `> [!WARNING]` for common pitfalls and gotchas
+- `> [!TIP]` for production best practices
+- `> [!NOTE]` for key architectural insights
+
+Place diagrams as visual breaks within long sections, not at the beginning/end of a file. Prefer replacing ASCII-art diagrams with Mermaid equivalents.
+
 ## Testing Guidelines
 There is no central automated test suite. Validate Markdown changes by checking links, headings, and examples manually. For PySpark examples, run them locally inside the virtual environment and keep sample inputs small. If a command produces generated files, place them under an `output/` directory and avoid committing bulky or transient results.
 

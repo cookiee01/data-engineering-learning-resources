@@ -5,6 +5,16 @@ All notable changes to this learning repository are documented here.
 The format is based on Keep a Changelog.
 
 ## [Unreleased]
+### Added
+- Added Mermaid architecture diagrams to three core notes files: Kafka (broker/partition layout, producer write path sequence), Flink (JobManager/TaskManager architecture, aligned checkpoint flow, watermark mechanism), System Design (CDC pipeline, real-time metrics pipeline, medallion architecture, incremental batch pipeline) — replaces ASCII diagrams with rendered Mermaid flowcharts and sequence diagrams
+- Added GitHub-flavored admonition callouts: `> [!WARNING]` (Kafka acks+min.insync.replicas trap), `> [!TIP]` (Flink idle partition watermark fix), `> [!NOTE]` (lakehouse storage-layer convergence insight) for visual emphasis
+- Enabled Mermaid rendering in MkDocs via `pymdownx.superfences` custom fence config
+- Documented visual content guidelines in `AGENTS.md` (Mermaid syntax, diagram formatting rules, admonition usage)
+- Rewrote `apache-kafka/notes.md` from link stub into full interview-prep notes — log abstraction, KRaft architecture, ISR/high watermark, producer acks and idempotence, consumer groups and rebalancing, delivery semantics and exactly-once, retention and compaction, storage internals, operational playbook, quick-reference cheatsheet (Senior DE ↔ Staff DE dialogue format)
+- Rewrote `apache-flink/notes.md` from 43-word pointer into full interview-prep notes — streaming-first vs Spark, architecture (JobManager/TaskManager/slots), state backends (heap vs RocksDB), checkpoints and savepoints (aligned/unaligned/incremental), watermarks and event time (idle partitions, late events), windowing (tumbling/sliding/session, state amplification), backpressure (credit-based flow control), exactly-once sinks (2PC, S3 limitations), restart strategies, operational playbook (Senior DE ↔ Staff DE dialogue format, aligned with practice-roadmap phases)
+- Rewrote `system-design/notes.md` from link stub into full DE system design interview-prep notes — four scenarios (CDC pipeline with Debezium+Kafka+Iceberg, real-time metrics with Flink+Druid, data lakehouse with medallion architecture, incremental batch with Iceberg MERGE INTO), each with architecture diagrams, trade-off tables, failure recovery walkthroughs, and a decision framework (Senior DE ↔ Staff DE dialogue format)
+- Expanded quiz app from 25 to 69 questions: added 16 Kafka questions (ISR, idempotence, rebalancing, compaction, partitioning, static membership, KRaft, watermark, backpressure), 18 Flink questions (state backends, checkpoints, watermarks, windowing, exactly-once sinks, backpressure, ops), 6 system-design questions (CDC, schema registry, medallion architecture, Druid vs ClickHouse, streaming vs batch, Iceberg sink), and 4 Iceberg questions (metadata tree, schema evolution, concurrent commits, partition evolution)
+
 ### Changed
 - Updated cross-references to sibling repo: renamed from `data-engineering-staff-learning-plan` → `data-engineering-learning-lab` in Flink setup guide and notes
 - Sibling repo (`data-engineering-learning-lab`): complete cleanup for public sharing — git history rewritten, personal info removed, "staff" language replaced, .env extraction, language fixes

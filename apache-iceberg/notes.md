@@ -56,29 +56,24 @@ Iceberg tracks every data file at the metadata layer. This enables:
 
 When Spark/Trino reads an Iceberg table, it traverses a **4-tier metadata tree**:
 
-```
-Catalog (Glue / Hive Metastore / Nessie)
-   └── pointer to current Metadata JSON file
-          │
-          ▼
-   Metadata JSON (.json)
-   - Table schema
-   - Partition spec
-   - History of Snapshots
-          │
-          ▼
-   Manifest List (.avro)             ← one per Snapshot
-   - List of Manifest Files
-   - Partition-level min/max stats   ← used to skip ENTIRE manifests
-          │
-          ▼
-   Manifest File (.avro)             ← one per batch of data files
-   - List of Data Files (Parquet/ORC)
-   - Column-level stats per file     ← used for file-level pruning
-   - List of Delete Files (MoR)
-          │
-          ▼
-   Data Files (.parquet / .orc)
+```mermaid
+graph TD
+    Catalog[Catalog<br/>Glue / Hive Metastore / Nessie]
+    MJ[Metadata JSON<br/>.json file]
+    ML[Manifest List<br/>.avro — one per snapshot]
+    MF[Manifest File<br/>.avro — one per write batch]
+    DF[Data Files<br/>.parquet / .orc]
+
+    Catalog -->|pointer to current<br/>metadata pointer| MJ
+    MJ -->|schema, partition spec,<br/>snapshot history| ML
+    ML -->|partition min/max stats,<br/>list of manifests| MF
+    MF -->|column-level stats,<br/>list of data + delete files| DF
+
+    style Catalog fill:#f59e0b,color:#fff
+    style MJ fill:#3b82f6,color:#fff
+    style ML fill:#10b981,color:#fff
+    style MF fill:#6b7280,color:#fff
+    style DF fill:#8b5cf6,color:#fff
 ```
 
 **Why this matters for query planning:**

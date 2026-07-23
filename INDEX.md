@@ -19,14 +19,14 @@ This is the navigation hub for the repo.
   - `foundations/networking.md`
   - `interview-prep/foundations-progress.md`
 - System Design
-  - `system-design/notes.md`
+  - `system-design/notes.md` (CDC pipeline, real-time metrics, lakehouse, incremental batch, decision framework)
   - `system-design/caching.md`
 - Flink
-  - `apache-flink/notes.md`
+  - `apache-flink/notes.md` (streaming-first model, state backends, checkpoints, watermarks, backpressure, exactly-once sinks, ops playbook)
   - `apache-flink/kafka-to-flink-local-setup.md`
   - `apache-flink/practice-roadmap.md`
 - Kafka
-  - `apache-kafka/notes.md`
+  - `apache-kafka/notes.md` (log abstraction, ISR, acks, rebalancing, exactly-once, compaction, ops playbook)
 - Iceberg
   - `apache-iceberg/notes.md` (architecture, hidden partitioning, CoW vs MoR, time travel)
 - Spark / PySpark
