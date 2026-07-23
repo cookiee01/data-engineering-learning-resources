@@ -6,6 +6,8 @@ The format is based on Keep a Changelog.
 
 ## [Unreleased]
 ### Added
+- Added `data-governance/notes.md` — data governance and quality (catalog comparison: Unity Catalog/Polaris/DataHub, lineage levels, OpenLineage standard, six quality dimensions, Great Expectations/dbt tests/Soda, data contracts with YAML schema, observability five pillars, SLA/SLO/SLI for data pipelines, column-level security and PII classification, interview cheatsheet)
+- Added Databricks patterns section to `apache-spark-pyspark/notes.md` (Unity Catalog, Delta Lake, Delta Live Tables, Auto Loader, Databricks SQL/Photon/Serverless, Databricks vs open-source Spark comparison)
 - Added `sql/notes.md` — SQL deep-dive for data engineering (query execution order, window functions with frame specs, JOIN strategies and algorithms, CTEs and recursive CTEs, aggregation nuances, execution plan reading, anti-patterns, partitioning/clustering, interview cheatsheet)
 - Added `data-modeling/notes.md` — data modeling for senior/staff DE (star schema, snowflake schema, three fact types, dimension tables including conformed/degenerate/junk, SCD Type 0-6 with decision matrix, Kimball vs Inmon vs Data Vault, grain declaration, fan traps)
 - Added `dbt/notes.md` — dbt fundamentals (models/sources/tests, materializations, Jinja macros, incremental models with lookback window, CI/CD patterns, Snowflake/Databricks-specific configs, selection syntax)

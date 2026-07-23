@@ -13,7 +13,8 @@ This is the navigation hub for the repo.
 8. `data-modeling/` — star schema, Kimball, SCD
 9. `dbt/` — modern data stack transformation
 10. `snowflake/` — warehouse architecture and tuning
-11. `aws-data-engineering/` — AWS services, patterns, cost
+11. `data-governance/` — catalog, lineage, quality, contracts, observability
+12. `aws-data-engineering/` — AWS services, patterns, cost
 12. `python/` — packaging, deployment, versioning, tooling
 8. AWS analytics stack: `emr/`
 
@@ -31,6 +32,8 @@ This is the navigation hub for the repo.
   - `snowflake/notes.md` (architecture, virtual warehouses, micro-partitions, clustering, time travel, zero-copy clone, cost management, Snowpipe, streams/tasks)
 - AWS Data Engineering
   - `aws-data-engineering/notes.md` (S3, Glue, EMR, Redshift, Lambda, Step Functions, Kinesis, IAM, cost optimization, architecture patterns)
+- Data Governance & Quality
+  - `data-governance/notes.md` (catalog, lineage, quality frameworks, data contracts, observability, SLOs, access control, PII)
 - Python
   - `python/notes.md` (packaging, pyproject.toml, wheels, Poetry/uv, SemVer, deployment, code quality, enterprise tooling)
 - Foundations

@@ -702,7 +702,139 @@ New stateful streaming API that replaces `mapGroupsWithState` / `flatMapGroupsWi
 
 ---
 
-## 16. Curated Resources
+## 17. Databricks Patterns
+
+**Sam:** GCCs running on AWS/Azure increasingly use Databricks as the Spark platform. Understanding Databricks-specific features differentiates senior candidates.
+
+### Unity Catalog
+
+**Sam:** Unity Catalog is Databricks' governance layer — fine-grained access control, lineage, data discovery, and audit across workspaces:
+
+```sql
+-- Three-level namespace: catalog.schema.table
+SELECT * FROM main_prod.sales.fct_orders;
+
+-- Grant column-level access
+GRANT SELECT ON VIEW main_prod.sales.fct_orders TO `analyst_team`;
+GRANT SELECT (customer_name, total_amount) ON main_prod.sales.fct_orders TO `support_team`;
+
+-- Track lineage (who depends on what)
+-- In Databricks UI: Catalog Explorer → table → Lineage tab
+```
+
+| Feature | What it replaces | Why it matters |
+| :--- | :--- | :--- |
+| Three-level namespace | Hive Metastore (db.table) | Isolate dev/staging/prod in the same metastore |
+| RBAC + column-level | IAM + Hive ACLs | Govern data without cloud IAM changes |
+| Automated lineage | Manual tracking | See which dashboards break when a table changes |
+| Audit log | CloudTrail | Who queried what PII column and when |
+| System tables | None | `system.access.audit` — query audit logs in SQL |
+
+### Delta Lake
+
+**Sam:** Delta Lake is Databricks' open table format (now Linux Foundation). It adds ACID transactions, schema enforcement, and time travel to Parquet:
+
+```sql
+-- Create Delta table
+CREATE TABLE fct_orders (
+    order_id BIGINT,
+    customer_id INT,
+    amount DECIMAL(10,2)
+) USING DELTA
+LOCATION 's3://data-lake/delta/fct_orders/'
+TBLPROPERTIES ('delta.enableChangeDataFeed' = 'true');
+
+-- Time travel
+SELECT * FROM fct_orders VERSION AS OF 42;
+SELECT * FROM fct_orders TIMESTAMP AS OF '2025-06-15T10:00:00';
+
+-- History
+DESCRIBE HISTORY fct_orders;
+
+-- Optimize (compaction + bin-packing)
+OPTIMIZE fct_orders;
+OPTIMIZE fct_orders ZORDER BY (customer_id);
+```
+
+### Delta Live Tables (DLT)
+
+**Sam:** DLT is a declarative ETL framework on Databricks — define what you want, Databricks handles pipelines, dependencies, and monitoring:
+
+```python
+# DLT pipeline — Databricks manages orchestration
+import dlt
+from pyspark.sql.functions import *
+
+@dlt.table
+def orders_raw():
+    return spark.readStream.format("cloudFiles") \
+        .option("cloudFiles.format", "parquet") \
+        .option("cloudFiles.inferColumnTypes", "true") \
+        .load("s3://data-lake/landing/orders/")
+
+@dlt.table
+@dlt.expect("valid_amount", "amount > 0")
+def orders_clean():
+    return dlt.read("orders_raw").filter(col("amount").isNotNull())
+```
+
+| Feature | Manual Spark | DLT |
+| :--- | :--- | :--- |
+| Pipeline orchestration | Airflow + Spark jobs | Declarative `@dlt.table` dependencies |
+| Data quality | Custom checks | `@dlt.expect` / `@dlt.expect_or_drop` |
+| Incremental processing | Manual watermark + merge | Auto (`apply_changes()` for CDC) |
+| Monitoring | CloudWatch/Logs | UI + system tables |
+
+### Auto Loader
+
+**Sam:** Auto Loader incrementally ingests new files from S3 without directory listing:
+
+```python
+df = spark.readStream.format("cloudFiles") \
+    .option("cloudFiles.format", "parquet") \
+    .option("cloudFiles.schemaLocation", "s3://data-lake/schemas/orders") \
+    .load("s3://data-lake/landing/orders/")
+```
+
+- Uses SQS notifications instead of LIST — works at any file count
+- Automatically infers and evolves schema
+- Best practice: always use Auto Loader for S3 ingestion into Bronze
+
+### Databricks SQL and Serverless
+
+**Sam:** Databricks SQL provides warehouse-like SQL endpoints on Delta Lake:
+
+```sql
+-- Create a SQL warehouse (equivalent to Snowflake VW)
+-- In UI: SQL Warehouses → Create → Serverless or Pro or Classic
+
+-- Query Delta tables directly
+SELECT customer_id, SUM(amount) as total
+FROM main_prod.sales.fct_orders
+WHERE order_date >= '2025-01-01'
+GROUP BY customer_id;
+```
+
+- **Serverless**: Instant start, no cluster to manage. Best for BI.
+- **Pro**: For ETL workloads needing more control.
+- **Photon**: Vectorized query engine — 2-10x faster for SQL. Transparent.
+
+### Databricks vs Spark (Interview Answer)
+
+| Aspect | Open-source Spark | Databricks Spark |
+| :--- | :--- | :--- |
+| Shuffle | Standard | Photon-accelerated (vectorized) |
+| Catalog | Hive Metastore | Unity Catalog (three-level + RBAC + lineage) |
+| File format | Parquet/ORC | Delta Lake (ACID + time travel) |
+| Streaming | Structured Streaming | DLT (declarative + quality + monitoring) |
+| S3 ingestion | fileStream (LIN) | Auto Loader (SQS-based, schema evolution) |
+| SQL | Spark SQL | Databricks SQL (Photon, serverless) |
+
+**Sam:** Most GCCs using Spark on AWS are moving toward Databricks because of Unity Catalog's governance (required for compliance in BFSI/healthcare) and DLT's operational simplicity. If you know open-source Spark well, Databricks is a thin layer on top — learn the Delta table format and Unity Catalog permissions model.
+
+---
+
+## 18. Curated Resources
 
 ### Official Documentation
 - [Apache Spark Docs — Tuning](https://spark.apache.org/docs/latest/tuning.html) — start here for config reference

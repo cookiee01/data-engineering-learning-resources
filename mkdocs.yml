@@ -64,7 +64,7 @@ nav:
     - 2-Month Sprint Plan: interview-prep/2-month-sprint-plan.md
     - Progress Checklist: interview-prep/progress-checklist.md
     - Quiz App: quiz-app/index.html
-  - Apache Spark / PySpark:
+  - Apache Spark / PySpark / Databricks:
     - Notes: apache-spark-pyspark/notes.md
     - Execution Architecture: apache-spark-pyspark/spark-concepts-execution-architecture.md
     - Serialization: apache-spark-pyspark/serialization.md
@@ -91,6 +91,8 @@ nav:
     - Notes: snowflake/notes.md
   - AWS Data Engineering:
     - Notes: aws-data-engineering/notes.md
+  - Data Governance & Quality:
+    - Notes: data-governance/notes.md
   - Python:
     - Notes: python/notes.md
   - System Design:
