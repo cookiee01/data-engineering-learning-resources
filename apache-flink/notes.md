@@ -6,5 +6,4 @@ This folder is split into two tracks:
 - Deeper practice roadmap (incremental): `practice-roadmap.md`
 
 Infrastructure source of truth:
-- `/Users/arpitsingh/MyWorkingDir/PycharmProjects/data-engineering-staff-learning-plan/docker-compose.yml`
-
+- [`data-engineering-learning-lab`](https://github.com/anomalyco/data-engineering-learning-lab) — contains the Docker Compose file and connector scripts referenced in the setup guide.

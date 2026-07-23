@@ -7,8 +7,13 @@ This is the baseline local setup to confirm end-to-end streaming:
 
 ## Source Infra
 
-Use this compose as the runnable lab:
-- `/Users/arpitsingh/MyWorkingDir/PycharmProjects/data-engineering-staff-learning-plan/docker-compose.yml`
+The Docker Compose file and connector scripts live in the [`data-engineering-learning-lab`](https://github.com/anomalyco/data-engineering-learning-lab) repo. Clone it alongside this repo:
+
+```bash
+cd ..
+git clone https://github.com/anomalyco/data-engineering-learning-lab.git
+cd data-engineering-learning-resources
+```
 
 Do not duplicate compose files across repos. Keep one infra source and document usage here.
 
@@ -21,7 +26,7 @@ Do not duplicate compose files across repos. Keep one infra source and document 
 ## Start Services
 
 ```bash
-cd /Users/arpitsingh/MyWorkingDir/PycharmProjects/data-engineering-staff-learning-plan
+cd ../data-engineering-learning-lab
 ./apache-flink/download-connectors.sh
 docker compose up -d zookeeper kafka schema-registry flink-jobmanager flink-taskmanager kafka-ui
 ```

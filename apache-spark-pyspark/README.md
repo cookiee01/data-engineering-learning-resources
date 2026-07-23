@@ -13,7 +13,7 @@ It’s written in Q&A style:
 
 ## Setup
 ```bash
-cd /Users/arpitsingh/MyWorkingDir/PycharmProjects/data-engineering-learning-resources/apache-spark-pyspark
+cd apache-spark-pyspark
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt

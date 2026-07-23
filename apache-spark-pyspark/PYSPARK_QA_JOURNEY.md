@@ -9,7 +9,7 @@ Rules of this document:
 
 ## Setup (one-time)
 From:
-`/Users/arpitsingh/MyWorkingDir/PycharmProjects/data-engineering-learning-resources/apache-spark-pyspark/`
+`apache-spark-pyspark/`
 
 ```bash
 python3 -m venv .venv

@@ -6,6 +6,10 @@ The format is based on Keep a Changelog.
 
 ## [Unreleased]
 ### Changed
+- Updated cross-references to sibling repo: renamed from `data-engineering-staff-learning-plan` → `data-engineering-learning-lab` in Flink setup guide and notes
+- Sibling repo (`data-engineering-learning-lab`): complete cleanup for public sharing — git history rewritten, personal info removed, "staff" language replaced, .env extraction, language fixes
+
+### Changed
 - Cleaned up repo structure: removed 5 empty directories (`athena/`, `aws-glue/`, `python/`, `data-structures-and-algorithms/`, `redshift/`)
 - Standardized topic entry points: renamed `apache-flink/README.md` → `apache-flink/notes.md`
 - Moved `foundations/progress.md` → `interview-prep/foundations-progress.md`
