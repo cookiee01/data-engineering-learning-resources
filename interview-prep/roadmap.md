@@ -386,6 +386,7 @@ Prepare 2-3 stories using the STAR method (Situation, Task, Action, Result).
 | Distributed systems concepts | `foundations/distributed-systems.md` |
 | OLAP vs OLTP | `foundations/olap-vs-oltp.md` |
 | Containerization (Docker/K8s) | `foundations/containerization.md` |
+| Serialization & encoding | `foundations/serialization.md` |
 | System design & caching | `system-design/notes.md`, `system-design/caching.md` |
 | EMR | `emr/notes.md` |
 | DSA (to be built) | `data-structures-and-algorithms/` |

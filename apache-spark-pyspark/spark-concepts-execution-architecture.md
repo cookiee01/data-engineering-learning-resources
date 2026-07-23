@@ -1,5 +1,12 @@
 # Spark Concepts and Execution Architecture
 
+> This is a **companion note** for the video linked below. It captures
+> the video's mental model but is not a standalone reference.
+> For comprehensive Spark interview prep, see
+> [`apache-spark-pyspark/notes.md`](notes.md) (878 lines covering
+> Catalyst, Tungsten, AQE, joins, skew, committers, UI, streaming,
+> Spark 4, RAPIDS, Databricks patterns).
+
 Video reference:
 - [Apache Spark Concepts and Execution Architecture](https://www.youtube.com/watch?v=z4Owc8RRApg)
 

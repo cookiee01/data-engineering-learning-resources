@@ -7,15 +7,39 @@ Reference `interview-prep/progress-checklist.md` for granular checklist items un
 
 ## Networking
 - **Playlist:** [Networking Fundamentals](https://www.youtube.com/playlist?list=PLDQaRcbiSnqF5U8ffMgZzS7fq1rHUI3Q8) — covers OSI model, TCP/IP, DNS, proxies
-- **Completed up to:** How the OSI Model Works | Network Fundamentals Part 3
 - **Last updated:** 2026-02-07
 - **Notes:** `foundations/networking.md` — covers forward/reverse proxy on AWS, ALB/CloudFront patterns, TLS termination, debugging playbook
 - **Status:** ██░░░░░░░░ 20%
 
+## Serialization & Data Encoding
+- **Resources:** `foundations/serialization.md`, `apache-spark-pyspark/serialization.md`
+- **Topics:** Avro vs Protobuf vs Thrift, Parquet/ORC columnar format, schema evolution (Avro rules, Protobuf reserved fields), compression codecs (Snappy/Zstd/Gzip/LZ4), row vs column orientation
+- **Status:** ░░░░░░░░░░ 0%
+
+## File Formats & Storage
+- **Resources:** `foundations/file-formats.md`
+- **Topics:** Parquet (row groups, column chunks, statistics, predicate pushdown), ORC vs Parquet, Avro for streaming, Iceberg table format layering, Delta Lake transaction log
+- **Status:** ░░░░░░░░░░ 0%
+
+## Containerization
+- **Resources:** `foundations/containerization.md`
+- **Topics:** Dockerfile best practices for DE (multi-stage builds, layer caching), Docker Compose for local Kafka/Flink clusters, Kubernetes basics (pods, deployments, services, configmaps), K8s operators (Flink Operator, Spark-on-K8s)
+- **Status:** ░░░░░░░░░░ 0%
+
+## Distributed Systems
+- **Resources:** `foundations/distributed-systems.md`
+- **Topics:** CAP theorem, consistency models (eventual, causal, strong), consensus (Paxos/Raft), distributed join strategies, failure detection and isolation
+- **Status:** ░░░░░░░░░░ 0%
+
+## OLAP vs OLTP
+- **Resources:** `foundations/olap-vs-oltp.md`
+- **Topics:** Workload characteristics (row vs column stores), storage orientation tradeoffs, MPP architecture, columnar compression, query patterns, real-world separation patterns
+- **Status:** ░░░░░░░░░░ 0%
+
 ---
 
 ## SQL & Data Modeling
-- **Resources:** LeetCode (database section), StrataScratch, `progress-checklist.md` §1
+- **Resources:** LeetCode (database section), StrataScratch, `progress-checklist.md` §1, `foundations/data-modeling.md`
 - **Topics:** Window functions, CTEs (recursive), joins (anti/semi), query optimization (EXPLAIN ANALYZE, partitioning, indexing), data modeling (star/snowflake, SCD Type 1/2/3, fact/dimension tables)
 - **Status:** ░░░░░░░░░░ 0%
 
@@ -122,6 +146,11 @@ with high data engineering pay:
 | Date | Hours | Topic | Notes |
 |------|-------|-------|-------|
 | 2026-02-07 | 1.0 | Networking | OSI model up to Part 3 |
+| 2026-07-24 | 3.0 | Foundations expansion | Created data-modeling, file-formats, distributed-systems, olap-vs-oltp, containerization, serialization |
+| 2026-07-24 | 1.0 | Cross-cutting topics | Added Data Contracts, Data Mesh, Reverse ETL, Data Observability to system-design + roadmap |
+| 2026-07-24 | 1.5 | Version-specific updates | Flink 2.0, Kafka 4.0, Spark RAPIDS, EMRFS deprecation |
+| 2026-07-24 | 1.0 | Thicken thin files | Expanded flink-practice-roadmap (78→350 lines), serialization foundations |
+| 2026-07-24 | 0.5 | Checklist updates | Added Flink 2.0, Kafka 4.0, RAPIDS, Reverse ETL, Data Mesh, Observability to progress-checklist |
 
 ---
 

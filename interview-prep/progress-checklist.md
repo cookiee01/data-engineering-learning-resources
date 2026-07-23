@@ -83,6 +83,11 @@ Mark each item `[x]` when you can explain it clearly **and** solve a related pro
 - [ ] Pandas UDFs (vectorized UDFs) — when they help
 - [ ] `cache()` vs `persist()` — storage levels
 
+### GPU Acceleration & Spark 4.x
+- [ ] RAPIDS Accelerator for Apache Spark — Catalyst plugin, GPU scheduling
+- [ ] Spark 4.x: stable SASL, enhanced AQE, `GENERATE` improvements
+- [ ] When GPU acceleration helps vs when it doesn't
+
 ### Streaming (Structured Streaming)
 - [ ] Micro-batch vs continuous processing
 - [ ] Output modes: append, update, complete
@@ -114,6 +119,7 @@ Mark each item `[x]` when you can explain it clearly **and** solve a related pro
 - [ ] Schema Registry — Avro/Protobuf/JSON Schema, compatibility modes
 - [ ] Dead letter queue — handling poison pills
 - [ ] Rebalancing — what happens, how to minimize impact (static group membership)
+- [ ] Kafka 4.0: KIP-848 (server-side rebalance), KIP-405 (tiered storage), KRaft maturity
 
 ---
 
@@ -131,6 +137,11 @@ Mark each item `[x]` when you can explain it clearly **and** solve a related pro
 - [ ] Checkpointing — exactly-once via checkpoint + 2PC (two-phase commit)
 - [ ] Savepoints — versioned state snapshots for upgrades
 - [ ] End-to-end exactly-once with Flink + Kafka sink
+
+### Flink 2.0
+- [ ] Materialized tables — continuous SQL pipeline as continuously updated table
+- [ ] Adaptive batch scheduler — batch auto-scaling based on data size
+- [ ] Multi-version state access — query state at a previous checkpoint
 
 ### Advanced
 - [ ] Flink SQL vs DataStream API — when to use each
@@ -218,6 +229,11 @@ Mark each item `[x]` when you can explain it clearly **and** solve a related pro
 - [ ] Data lineage — OpenLineage, Marquez, why it matters
 - [ ] SLOs — freshness, completeness, accuracy for pipelines
 - [ ] PII detection and masking
+- [ ] Data Observability — Monte Carlo, Sifflet, Bigeye; 5 pillars (freshness, volume, distribution, schema, lineage)
+
+### Data Architecture Patterns
+- [ ] Reverse ETL — warehouse → operational tools (Hightouch, Census)
+- [ ] Data Mesh — domain ownership, data as product, federated governance
 
 ---
 
