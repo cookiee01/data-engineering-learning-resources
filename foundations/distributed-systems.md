@@ -229,7 +229,9 @@ Fast writes: W=1, R=3 (write may not be seen by all readers)
 
 ---
 
-## 6. Consensus — Raft
+## 6. Coordination Protocols — Consensus and Distributed Transactions
+
+### 6.1 Raft Consensus
 
 **Question:** *"Explain how Kafka KRaft works. How does it differ from ZooKeeper-based consensus?"*
 
@@ -268,6 +270,49 @@ sequenceDiagram
 > in Kafka 4.0. Interview answer: "KRaft removes the ZooKeeper dependency
 > by using Raft consensus directly in Kafka controllers, improving
 > scalability and operational simplicity."
+
+### 6.2 Two-Phase Commit (2PC) — Deep Dive
+
+**Question:** *"Explain 2PC. Why do people say it doesn't scale?"*
+
+```mermaid
+sequenceDiagram
+    participant C as Coordinator
+    participant P1 as Participant 1 (Kafka)
+    participant P2 as Participant 2 (Postgres)
+
+    Note over C,P2: Phase 1: PREPARE
+    C->>P1: prepare(tx)
+    C->>P2: prepare(tx)
+    P1->>P1: Write to WAL, lock resources<br/>reply YES/NO
+    P2->>P2: Write to WAL, lock resources<br/>reply YES/NO
+    P1-->>C: YES
+    P2-->>C: YES
+
+    Note over C,P2: Phase 2: COMMIT
+    C->>C: Decision logged to WAL<br/>(durable before notifying)
+    C->>P1: commit
+    C->>P2: commit
+    P1-->>C: ACK
+    P2-->>C: ACK
+```
+
+**Why it's correct:** The decision is durable at the coordinator before
+phase 2, so a coordinator crash mid-commit can be recovered — participants
+that voted YES stay locked and ask the coordinator for the outcome.
+
+**Why it struggles at scale:**
+
+| Problem | Impact |
+|---|---|
+| **Blocking** | Participants hold locks from PREPARE to COMMIT. A slow coordinator = every participant stalls |
+| **Coordinator = single point** | If the coordinator dies between phases, participants block until recovery (heuristic decisions risk inconsistency) |
+| **Latency multiplication** | 2 extra network round trips per transaction, across the slowest participant |
+| **Not all systems speak XA** | S3 has no prepare/commit. SaaS APIs don't. 2PC needs every participant to support the protocol |
+
+**Where DE actually uses it:** Flink's exactly-once sinks implement 2PC
+internally (Kafka sink, JDBC sink). Iceberg avoids 2PC entirely with
+optimistic concurrency + atomic catalog swap — the modern preference.
 
 ---
 
@@ -435,6 +480,68 @@ Partition by date (yyyy-mm-dd):
 4. **If the skew is temporary** (one-time backfill): create a separate
    table for the large partition, union queries across both
 
+### Q7: "Your Spark job writes the same events to S3 (for the lake) and Kafka (for real-time consumers). A failure mid-write leaves them inconsistent. How do you design for this?"
+
+**The dual-write problem:** There is no atomic commit across S3 and
+Kafka — no shared transaction coordinator exists.
+
+```mermaid
+flowchart TD
+    DW["Dual-write inconsistency"]
+    DW --> A["Option A: Single write + derive<br/>Write to Kafka ONLY.<br/>Lake populated by a consumer<br/>(Kafka→S3 connector or Flink).<br/>Kafka is the source of truth."]
+    DW --> B["Option B: Single write + CDC<br/>Write to the lake (Iceberg) ONLY.<br/>Iceberg commit triggers<br/>downstream publish to Kafka.<br/>Lake is the source of truth."]
+    DW --> C["Option C: Accept eventual consistency<br/>Write both, reconcile:<br/>hourly job compares S3 vs Kafka<br/>counts, backfills gaps.<br/>Cheap, but dashboards can<br/>disagree briefly."]
+```
+
+**Interview answer:** "Never dual-write to two systems you don't own
+transactions for. Pick one system as the commit point and derive the
+other. Option A (Kafka first) is the standard for streaming-first
+architectures; Option B (lake first) for analytics-first."
+
+### Q8: "Why can't you just use timestamps to order events in a distributed pipeline?"
+
+| Approach | Problem |
+|---|---|
+| **Wall-clock timestamps** | Clock skew between machines (typically 10-250ms without tight NTP); two events can get identical or inverted timestamps |
+| **NTP-disciplined clocks** | Better, but leap seconds + slew adjustments can move clocks backward |
+| **TrueTime-style (Google Spanner)** | GPS/atomic clocks give bounded uncertainty (~7ms) — not available on commodity cloud VMs |
+
+**What systems actually use:**
+- **Lamport clocks / vector clocks:** logical ordering of causally
+  related events (DynamoDB, Cassandra conflict resolution)
+- **Single-writer sequencing:** one partition/leader assigns order
+  (Kafka partition offsets) — sidesteps clock trust entirely
+- **Hybrid logical clocks:** physical time + logical counter
+  (CockroachDB, MongoDB cluster time)
+
+**DE takeaway:** For event ordering, trust **partition assignment +
+offset** (Kafka) or **sequence numbers from one authority**, not event
+timestamps. Use timestamps for windowing (with watermarks for
+lateness), never for correctness.
+
+### Q9: "Cassandra cluster: RF=3, and you must survive 1 node failure with strong consistency on reads AND writes. Set W and R."
+
+```
+N = 3 replicas
+Survive 1 failure → at least 2 nodes must serve every operation
+
+Strong consistency requires W + R > N:
+  W=2, R=2 → 4 > 3 ✓
+
+Failure tolerance check (1 node down → N=2 available):
+  Write needs W=2 → 2 available ✓ succeeds
+  Read needs R=2 → 2 available ✓ succeeds
+
+So W=2, R=2, RF=3 survives exactly 1 node failure with strong
+consistency. A 2nd node failure makes BOTH reads and writes fail —
+that's the CP trade.
+```
+
+**Follow-up interviewers ask:** "What if you need to survive 2 node
+failures?" → RF must be 5 (W=3, R=3 → 6 > 5; with 2 down, 3 available
+still satisfies both). **Replication factor is set by failure-tolerance
+requirements, quorum by consistency requirements.**
+
 ---
 
 ## 9. Quick Reference — Interview Edition
@@ -453,3 +560,8 @@ Partition by date (yyyy-mm-dd):
 | **ZooKeeper vs KRaft?** | KRaft (Raft) replaces ZK: no external system, scales to 1M+ partitions |
 | **Strong vs eventual?** | Cost: 2-5x latency for strong. Use strong for money, eventual for dashboards |
 | **Hot partition fix?** | Salt the key, over-partition, or custom partitioner |
+| **2PC in one line?** | Prepare (vote + lock) → commit (decision durable first); blocking, coordinator SPOF, rarely crosses system boundaries |
+| **Dual-write S3+Kafka?** | Never. Write to one commit point, derive the other (Kafka-first or lake-first) |
+| **Timestamps for ordering?** | No — clock skew. Use partition offsets, sequence numbers, or vector clocks |
+| **RF vs quorum?** | RF set by failure tolerance, quorum (W+R>N) by consistency requirement |
+| **2PC alternative?** | Optimistic concurrency + atomic swap (Iceberg), or idempotent at-least-once (Flink sinks) |
