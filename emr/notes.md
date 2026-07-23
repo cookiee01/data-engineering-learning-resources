@@ -103,13 +103,18 @@ EMRFS is a custom Hadoop FileSystem implementation (`com.amazon.ws.emr.hadoop.fs
 
 | Feature | EMRFS | S3A (open-source) |
 |---|---|---|
-| Consistent view | Optional DynamoDB store | Eventually consistent |
+| Consistent view | Deprecated (EOL June 2023) | Not needed — S3 is strongly consistent |
 | S3 magic committer | Yes (EMR-only) | No |
 | Server-side encryption | SSE-S3, SSE-KMS, SSE-C | SSE-S3, SSE-KMS |
 | IAM role chaining | Yes | No (uses single role) |
 | Performance on large listings | Optimized with pagination | Baseline |
 
-**DynamoDB Consistent View:**
+**DynamoDB Consistent View (Deprecated):**
+
+> [!WARNING]
+> EMRFS consistent view reached **end of standard support on June 1, 2023** for new EMR releases. S3 has provided strong read-after-write consistency since December 2020. AWS recommends turning it off and deleting the associated DynamoDB table. Do not enable on new clusters.
+
+Legacy configuration (for reference only):
 
 ```json
 {
@@ -121,16 +126,15 @@ EMRFS is a custom Hadoop FileSystem implementation (`com.amazon.ws.emr.hadoop.fs
 }
 ```
 
-When to enable:
-- **Output of one step is the input of the next step on the same cluster** (e.g., multi-step ETL pipeline)
-- S3 LIST operations must reflect recent writes immediately
+**Why it existed:** Before December 2020, S3 had list-after-overwrite eventual consistency. A Spark job that wrote files and immediately listed them could miss its own output. EMRFS tracked S3 object metadata in DynamoDB to work around this.
 
-When to disable:
-- Single-step jobs that read from a stable S3 location
-- Jobs where eventual consistency is acceptable
-- You want to avoid DynamoDB cost (read/write capacity units scale with S3 operations)
+**Why it's gone:** S3 now provides strong read-after-write consistency for all GET/LIST/PUT operations across all regions. The DynamoDB workaround is unnecessary overhead.
 
-**The read-after-write consistency gap on S3 (pre-2020):** Older EMR docs obsess about this because S3 had list-after-overwrite eventual consistency. As of December 2020, S3 provides strong read-after-write consistency for all GET/LIST operations. The DynamoDB consistent view is now less critical but still useful for workloads that depend on immediate visibility between concurrent readers/writers.
+**Migration:**
+- Turn `fs.s3.consistent` to `false` in `emrfs-site`
+- Delete the DynamoDB table (`EmrFSMetadata` or custom name)
+- Remove any SQS notification queues configured for inconsistency alerts
+- Verify no cost impact from unused DynamoDB provisioned capacity
 
 **EMRFS S3 Magic Committer:**
 
@@ -159,7 +163,7 @@ Enable with:
 | Too many S3 LIST calls | High S3 request cost, slow task startup | Increase `mapreduce.input.fileinputformat.list-status.num-threads` (default 1 → 8–16) |
 | Small files in S3 | Slow tasks, too many mappers | Coalesce/repartition before write, or use `spark.sql.files.maxPartitionBytes` |
 | S3 throttling | `503 SlowDown` errors | Enable EMRFS retry with exponential backoff; use S3 prefixes to scale request rate |
-| High EMRFS metadata cost | DynamoDB bill spikes | Reduce `fs.s3.consistent.retryCount` or disable consistent view for non-critical paths |
+| High EMRFS metadata cost | DynamoDB bill spikes | Disable consistent view entirely (deprecated since June 2023) and delete the DynamoDB table |
 
 ### HDFS on EMR — When and Why
 

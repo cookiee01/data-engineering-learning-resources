@@ -539,7 +539,7 @@ def write_microbatch(df, epoch_id):
 | Feature | EMR | Open-Source |
 |---|---|---|
 | **S3 committer** | Magic Committer (best for S3) | S3A Committer (good, but listing overhead on commit) |
-| **EMRFS consistent view** | DynamoDB-backed consistency. Turn it off for strong consistency regions. | N/A — rely on S3 strong consistency |
+| **EMRFS consistent view** | Deprecated (EOL June 2023). S3 strong consistency makes it unnecessary. | N/A — rely on S3 strong consistency |
 | **Auto-scaling** | Instance fleet + managed scaling | Manual or custom K8s autoscaler |
 | **Runtime** | EMR 6.x includes Spark 3.x + Iceberg + Hudi + Delta pre-installed | Manual dependency management |
 | **Spot integration** | EMR manages spot termination gracefully (task nodes only) | Manual unschedulable node handling |
