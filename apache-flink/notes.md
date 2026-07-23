@@ -19,7 +19,8 @@
 10. [Restart Strategies and Failure Recovery](#10-restart-strategies-and-failure-recovery)
 11. [Operational Playbook](#11-operational-playbook)
 12. [Quick Reference Cheatsheet](#12-quick-reference-cheatsheet)
-13. [Resources](#13-resources)
+13. [Flink 2.0 and What Changed](#13-flink-20-and-what-changed)
+14. [Resources](#14-resources)
 
 ---
 
@@ -441,7 +442,54 @@ Flink's exactly-once guarantee to external systems uses the checkpoint barrier a
 
 ---
 
-## 13. Resources
+## 13. Flink 2.0 and What Changed
+
+Flink 2.0 (released 2025) is the first major version bump since 1.0
+(2016). It is not a rewrite — it is Flink 1.x with materialized
+improvements that change how you think about the platform.
+
+### What Stayed the Same
+
+- Core streaming engine (DataStream API, checkpointing, state)
+- Flink SQL, Table API, DataStream API — same mental model
+- Exactly-once semantics, watermarks, event-time processing
+
+### What Changed
+
+| Feature | Flink 1.x | Flink 2.0 |
+|---|---|---|
+| **Scheduler** | Default scheduler (Adapative) | New **adaptive batch scheduler** — dynamically plans batch job execution based on data size and cluster resources |
+| **Materialized Tables** | Not available | Declarative streaming pipelines as continuously updated tables (Flink SQL `CREATE MATERIALIZED TABLE`) |
+| **State Lazy Access** | State always deserialized on access | Selective state access — only the required keys/values are deserialized, reducing CPU and memory |
+| **Multi-Version State** | Not supported | Keep multiple state versions for time-travel queries and long-running window correctness |
+| **Schema Registry** | No native integration | Built-in integration with Confluent/APICurio Schema Registry for Avro/Protobuf |
+| **Flink SQL Gateway** | Experimental | Stable SQL Gateway for interactive queries via JDBC/ODBC |
+| **Kubernetes Operator** | 1.x had an operator | Matured — declarative `FlinkDeployment` CRD, auto-upgrades, savepoint management |
+| **REST API v2** | v1 | v2 with async job submission, better monitoring endpoints |
+| **Paimon integration** | Optional | Native — Flink + Paimon for streaming lakehouse (Flink-native Iceberg alternative) |
+
+### Migration Notes
+
+| From 1.x | To 2.0 |
+|---|---|
+| Recompile your job JARs (API compatible, savepoints compatible) | `s/Flink 1.x/Flink 2.0/g` in build files |
+| Check deprecated APIs: `DataStreamUtils`, all `-1.x` connectors | Use new connector artifacts (`flink-connector-kafka:3.x` → `4.x`) |
+| Adaptive scheduler is default for batch jobs (no config change) | No action needed but review batch job performance |
+| Old `flink-conf.yaml` still works | New options available for adaptive batch, materialized tables |
+
+### What It Means for DE Interviews
+
+- If asked "Which version of Flink?" — say **2.0** (demonstrates you
+  keep current)
+- Mention **materialized tables** as the future of streaming SQL
+- Bring up **adaptive batch scheduler** for hybrid batch/streaming
+  workloads
+- Know that the **core engine hasn't changed** — 1.x knowledge is still
+  valid
+
+---
+
+## 14. Resources
 
 - [Flink Documentation — Concepts](https://nightlies.apache.org/flink/flink-docs-stable/docs/concepts/overview/) — official: stateful, streaming-first execution model
 - [Flink Documentation — Operations](https://nightlies.apache.org/flink/flink-docs-stable/docs/ops/overview/) — checkpointing, backpressure, monitoring

@@ -17,7 +17,8 @@
 8. [Storage Internals: Why Kafka Is Fast](#8-storage-internals-why-kafka-is-fast)
 9. [Operational Playbook](#9-operational-playbook)
 10. [Quick Reference Cheatsheet](#10-quick-reference-cheatsheet)
-11. [Resources](#11-resources)
+11. [Kafka 4.0: KIP-848 & Tiered Storage](#11-kafka-40-kip-848--tiered-storage)
+12. [Resources](#12-resources)
 
 ---
 
@@ -346,7 +347,86 @@ After:    k2→X  k3→P  k1→C          (latest value per key; tombstone
 
 ---
 
-## 11. Resources
+## 11. Kafka 4.0: Key Changes (KIP-848 & Tiered Storage)
+
+Kafka 4.0 (released 2025) removes ZooKeeper entirely (already gone in
+3.x for new clusters) and introduces two major changes DEs must know.
+
+---
+
+### KIP-848: New Consumer Rebalance Protocol
+
+The biggest change to consumer groups since Kafka 0.9.
+
+| Aspect | Old Protocol (Kafka < 3.7) | New Protocol (KIP-848, 3.7+) |
+|---|---|---|
+| **Coordination** | All rebalance coordination through the **group coordinator** broker | Same, but protocol is **incremental and cooperative by default** |
+| **Rebalance type** | Stop-the-world (all consumers revoke all partitions) | **Incremental** — only affected consumers revoke/assign partitions |
+| **Assignment** | Client-side (consumers compute assignment) | **Server-side** (broker computes assignment) — new `ShareGroup` |
+| **State** | Consumers track assignment locally | Assignment tracking moved to broker |
+| **Performance** | Full rebalance can take seconds for large groups | Sub-second rebalances, no global pause |
+
+**Why it matters:**
+- Large consumer groups (1000+) no longer pause processing during
+  rebalances
+- Adding/removing consumers is near-transparent
+- Server-side assignment enables smarter load balancing
+
+### KIP-405: Tiered Storage
+
+Separates **hot** (local broker disk) from **cold** (S3/GCS/ABS) data,
+enabling near-infinite retention without adding broker nodes.
+
+```
+Before tiered storage:
+  broker disk ───► partition data (all of it, forever)
+
+After tiered storage:
+  broker disk (fast, local) ──► recent data (hot tier)
+          │
+          ▼
+  S3/GCS/ABS (cheap, infinite) ──► historical data (cold tier)
+```
+
+| Tier | Storage | Performance | Retention | Cost |
+|---|---|---|---|---|
+| **Hot** (leader/follower disks) | Local SSD/HDD | Low latency | Hours to days | High ($/GB) |
+| **Cold** (S3/GCS/ABS) | Object store | Higher latency (SELECT on read) | Months to years | Low ($/GB) |
+
+**When to use:**
+- Compliance requires multi-year retention
+- Reprocessing historical data without re-ingesting
+- Reducing broker disk cost (largest Kafka operational expense)
+
+**How it works at read time:**
+```python
+# Consumer code doesn't change — broker fetches from tier transparently
+consumer.subscribe(['orders'])
+for msg in consumer:
+    process(msg)  # May come from hot tier (local) or cold tier (S3)
+```
+
+**DE interview answer:**
+> "Tiered Storage moves older segment files from broker-attached disks
+> to S3. Consumers still read from any offset — the broker fetches from
+> S3 transparently. It decouples retention from storage cost."
+
+### KRaft Maturity (ZooKeeper Removal)
+
+| Version | KRaft Status |
+|---|---|
+| Kafka 3.3 (2022) | KRaft production-ready for new clusters |
+| Kafka 3.5 (2023) | KRaft self-balancing, JBOD support |
+| Kafka 4.0 (2025) | ZooKeeper code **removed entirely** |
+
+> [!WARNING]
+> If you see a job posting or blog from 2023 mentioning ZooKeeper,
+> that is **obsolete**. Kafka 4.0 has no ZK code. KRaft uses a
+> Raft-based controller quorum.
+
+---
+
+## 12. Resources
 
 - [Kafka Crash Course (YouTube)](https://youtu.be/DU8o-OTeoCc?si=Ce1_j7LbREdRqSNL) — quick visual refresher
 - [Kafka Deep Dive (Hello Interview)](https://www.hellointerview.com/learn/system-design/deep-dives/kafka) — system-design angle on internals

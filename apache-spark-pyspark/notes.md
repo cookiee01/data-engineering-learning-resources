@@ -1,6 +1,6 @@
 # PySpark / Spark — Interview Notes
 
-**Targets Spark 3.x (primarily 3.2+ where AQE is enabled by default).** A few sections (push-based shuffle, star join) reference Spark 3.2–3.3 features. The core concepts (Catalyst, Tungsten, memory model, shuffle) apply to 2.x+ as well.
+**Targets Spark 3.x (primarily 3.2+ where AQE is enabled by default) with Spark 4.x coverage in §15.** A few sections (push-based shuffle, star join) reference Spark 3.2–3.3 features. The core concepts (Catalyst, Tungsten, memory model, shuffle) apply to 2.x+ as well. GPU acceleration via RAPIDS covered in §16.
 
 ## 1. Catalyst Optimizer
 
@@ -699,6 +699,69 @@ New stateful streaming API that replaces `mapGroupsWithState` / `flatMapGroupsWi
 | `spark.sql.sources.partitionOverwriteMode` | `static` (default) | `dynamic` (default) |
 | `spark.sql.adaptive.enabled` | `false` (3.0-3.1), `true` (3.2+) | `true` (default) |
 | Hive UDFs | Supported | Deprecated |
+
+---
+
+## 16. GPU Acceleration: RAPIDS Accelerator for Apache Spark
+
+The RAPIDS Accelerator (by NVIDIA) lets Spark run on GPUs without
+rewriting code — it replaces the CPU-based physical plan with GPU-
+optimized operators.
+
+### How It Works
+
+```mermaid
+flowchart LR
+    A[Spark SQL/DataFrame query] --> B[Catalyst Optimizer]
+    B --> C{Can run on GPU?}
+    C -->|Yes| D[GPU plan:<br/>cuDF + RAPIDS operators]
+    C -->|No| E[CPU plan:<br/>standard Spark]
+    D --> F[GPU executors]
+    E --> G[CPU executors]
+```
+
+- Catalyst physical plan is inspected; operators with GPU implementations
+  (filter, join, agg, sort, window, scan) run on GPU
+- Unsupported operators (UDFs, some string ops) fall back to CPU
+- Transition between GPU and CPU happens transparently via
+  host/exchange memory
+
+### What Speeds Up
+
+| Operator | GPU Speedup (Typical) | Notes |
+|---|---|---|
+| Filter / Projection | 5-10x | Memory-bandwidth bound — GPU excels |
+| Hash Join (BHJ/SHJ) | 3-8x | Parallel hash table on GPU |
+| Aggregation | 3-6x | GroupBy + SUM/AVG/COUNT |
+| Sort | 2-5x | GPU merge sort |
+| Window functions | 2-4x | Dependent on partition count |
+| Parquet read (GPU decode) | 2-3x | GPU accelerates decompression + decoding |
+
+### Requirements
+
+- **Hardware:** NVIDIA GPU with ≥ 16 GB memory (T4, L4, A10G, A100, H100)
+- **Software:** RAPIDS Accelerator JAR + CUDA 11.x / 12.x
+- **Spark config:**
+  ```conf
+  spark.plugins=com.nvidia.spark.SQLPlugin
+  spark.rapids.sql.enabled=true
+  spark.rapids.memory.gpu.pooling.enabled=true
+  ```
+- **Supported on:** EMR, Databricks (Photon GPU), GCP Dataproc, on-prem
+
+### When NOT to Use
+
+- GPU memory < 4 GB (no benefit, risk of OOM)
+- Heavy Python UDFs (can't run on GPU, incur CPU/GPU transfer cost)
+- Small datasets (overhead of launching GPU kernels > CPU processing time)
+- Shuffle-heavy workloads with small GPU memory (spill kills performance)
+
+### DE Interview Angle
+
+> "RAPIDS is a Catalyst plugin that maps physical operators to GPU
+> implementations via cuDF + cuIO. It's a config change, not a code
+> change. Best for filter/join/agg on large datasets with clean GPU
+> memory fit."
 
 ---
 
