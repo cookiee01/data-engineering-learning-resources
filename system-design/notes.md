@@ -12,10 +12,12 @@
 3. [Scenario B: Design a Real-Time Metrics Pipeline](#3-scenario-b-design-a-real-time-metrics-pipeline)
 4. [Scenario C: Design a Data Lakehouse](#4-scenario-c-design-a-data-lakehouse)
 5. [Scenario D: Design an Incremental Batch Pipeline](#5-scenario-d-design-an-incremental-batch-pipeline)
-6. [Decision Trade-off Framework](#6-decision-trade-off-framework)
-7. [Quick Reference Cheatsheet](#7-quick-reference-cheatsheet)
-8. [Modern Cross-Cutting Concerns](#8-modern-cross-cutting-concerns)
-9. [Resources](#9-resources)
+6. [Scenario E: Design a Log Aggregation Platform](#6-scenario-e-design-a-log-aggregation--observability-platform)
+7. [Scenario F: Design a Feature Store for ML](#7-scenario-f-design-a-feature-store-for-ml)
+8. [Decision Trade-off Framework](#8-decision-trade-off-framework)
+9. [Quick Reference Cheatsheet](#9-quick-reference-cheatsheet)
+10. [Modern Cross-Cutting Concerns](#10-modern-cross-cutting-concerns)
+11. [Resources](#11-resources)
 
 ---
 
@@ -29,8 +31,25 @@ Data engineering system design interviews differ from general software engineeri
 | Real-time metrics | Low-latency event collection and aggregation | Kafka, Flink, Druid/ClickHouse |
 | Data lakehouse | Unified batch/stream with ACID and governance | Iceberg, Nessie/Polaris, Flink/Spark, dbt |
 | Incremental batch | Processing only new/changed data day over day | Spark, Iceberg, Airflow, high-watermark patterns |
+| Log aggregation | Searchable logs at scale with cost control | Fluent Bit/Vector, Kafka buffer, OpenSearch/ClickHouse, S3 cold tier |
+| Feature store | One feature definition serving training + inference | Feast/Tecton, Iceberg offline store, Redis/DynamoDB online store |
 
 These notes cover each scenario with architecture diagrams, trade-off tables, and dialogue explaining the "why".
+
+### What Interviewers Score (Evaluation Criteria)
+
+| Dimension | What a strong answer demonstrates | Red flags |
+| :--- | :--- | :--- |
+| **Requirements first** | Asks about latency SLA, throughput, consumer count, growth before drawing anything | Jumps to "Kafka + Flink" without clarifying |
+| **Layered architecture** | Ingestion → buffer → compute → storage → serving, each justified | One box labeled "Spark" doing everything |
+| **Trade-off articulation** | Names what each choice costs, not just what it does | "Tool X is just better" with no downside stated |
+| **Failure design** | Recovery, idempotency, dedup, backfill — designed in, not bolted on | "We'll retry" as the entire failure strategy |
+| **Scale realism** | Numbers: partitions, file sizes, state size, QPS — with the math shown | "It scales horizontally" with no bottleneck analysis |
+| **Operational ownership** | Monitoring, alerting, maintenance jobs, schema governance | Design ends at "data lands in the lake" |
+
+**The drill questions after each scenario are the follow-ups that
+separate seniors from staff: they test whether you've operated the
+system, not just read about it.**
 
 ---
 
@@ -117,6 +136,16 @@ flowchart LR
 
 > A CDC pipeline starts with Debezium tailing the source DB's WAL and writing Avro-serialized change events to compacted Kafka topics. The Schema Registry enforces compatibility. Flink reads the feeds, handles deduplication and late events, and sinks to Iceberg via its exactly-once two-phase commit. This architecture gives sub-minute freshness with full ACID compliance on S3 and the ability to reprocess from any point by resetting offsets.
 
+### Drill Questions (Scenario A)
+
+| Interviewer asks | Strong answer |
+| :--- | :--- |
+| "The source DBA says replication slots are filling the disk. Now what?" | Slot retains WAL until consumed. Connector down too long → WAL accumulates. Alert on slot lag; set max WAL size; if slot lost, Debezium `snapshot.mode=when_needed` re-snapshots |
+| "A column rename breaks 30 downstream consumers. Walk the rollout." | Registry new version (backward) → consumers upgrade → source deploys. Truly breaking change → new subject + new topic + migration |
+| "Postgres failover happens. Does Debezium survive?" | Replication slots don't survive failover by default → use failover slots (PG16+) or re-create slot + new snapshot on the replica. State this — it shows you've run it |
+| "Debezium vs AWS DMS?" | DMS: managed, simpler, higher latency, weaker schema evolution. Debezium: registry integration, community, control. Default Debezium unless the team has zero Kafka ops capacity |
+| "How do you backfill a table that existed before CDC was set up?" | Debezium initial snapshot (consistent, no table lock on PG) OR bulk export → Iceberg, then start CDC from the snapshot's LSN |
+
 ---
 
 ## 3. Scenario B: Design a Real-Time Metrics Pipeline
@@ -191,6 +220,16 @@ flowchart LR
 ### Key Interview Answer
 
 > A real-time metrics pipeline uses a stateless gateway for validation, Kafka for buffering, Flink for windowed streaming aggregation, and an OLAP store (Druid or ClickHouse) for serving. The architecture separates the compute (Flink) from the serving (OLAP). Event time is critical for correctness; watermark strategies handle late data. Long-term raw data goes to Iceberg for backtesting and ML.
+
+### Drill Questions (Scenario B)
+
+| Interviewer asks | Strong answer |
+| :--- | :--- |
+| "100K → 10M events/sec. What breaks first?" | Gateway (stateless — scales horizontally), then Kafka partitions (reshard), then OLAP ingestion (Druid middleManagers / CH shards). Flink scales by parallelism; the OLAP store is usually the real wall |
+| "Users want the dashboard to show 'right now' AND be exactly correct. Response?" | Impossible together — provisional + corrected. Fire windows early with approximations, re-fire with late data; label live numbers as estimates |
+| "Why not just Kafka Streams?" | Kafka-in/Kafka-out only; you still need the OLAP serving layer. Flink wins when sinks aren't Kafka and windows get complex |
+| "Cardinality explosion: user_id in the GROUP BY blows up Druid. Fix?" | Roll up at ingestion (Flink pre-aggregates per-minute), use sketches (HLL) for uniques, cap high-cardinality dims in the rollup spec |
+| "One tenant produces 80% of events. Consequences?" | Hot partition (Kafka), hot rollup (Druid segment imbalance). Shard by tenant_id for the whale; separate topic; per-tenant quotas at the gateway |
 
 ---
 
@@ -287,6 +326,16 @@ flowchart LR
 
 > A lakehouse uses an open table format (Iceberg) on object storage, an open REST catalog (Polaris), and a medallion architecture (Bronze → Silver → Gold) to separate concerns. Batch and streaming merge at the storage layer. The catalog provides ACID, schema evolution, and governance. dbt handles SQL transformations; Flink and Spark handle the ingest and complex processing. The lakehouse does not replace real-time OLAP stores — it complements them.
 
+### Drill Questions (Scenario C)
+
+| Interviewer asks | Strong answer |
+| :--- | :--- |
+| "Bronze is at 500K small files. Walk the fix." | Compaction pipeline: rewrite_data_files daily (bronze), hourly (streaming silver); target 256–512 MB; then rewrite_manifests; then reduce upstream write frequency |
+| "A bad dbt deploy corrupted Gold for 3 days. Undo it." | Iceberg time travel: point catalog at pre-deploy snapshot OR rollback procedure. Then fix dbt, re-run incremental. This is why snapshots + retain_last matter |
+| "Two teams both need 'revenue' but define it differently." | Conformed metrics layer (dbt metrics / semantic layer) with ONE certified definition; second team gets a differently-named metric. This is a governance problem, not a compute problem |
+| "Why Polaris over Glue catalog?" | Glue: zero-ops, AWS-only, throttling at high TPS. Polaris: REST, engine-neutral, RBAC, multi-cloud. If you're Glue-native and single-engine, Glue is fine — say that too |
+| "Cost of the lakehouse vs the old warehouse?" | Storage: 5-10x cheaper (S3 vs warehouse storage). Compute: similar per-query, but you now pay per engine. The win is flexibility + no egress, not raw TCO |
+
 ---
 
 ## 5. Scenario D: Design an Incremental Batch Pipeline
@@ -353,9 +402,162 @@ flowchart LR
 
 > An incremental batch pipeline uses a high-watermark pattern to read only new data, Iceberg `MERGE INTO` for idempotent upserts, and partitioned fact tables so merges scan only the relevant partition. Late-arriving data is handled within a configurable window via upsert into the target partition. Compaction runs periodically to manage small files from frequent ingestion. Airflow orchestrates the stages with retry boundaries at each write.
 
+### Drill Questions (Scenario D)
+
+| Interviewer asks | Strong answer |
+| :--- | :--- |
+| "The API has no updated_at field. How do you do incremental?" | Can't, reliably. Options: full snapshot + diff by hash (expensive but correct), CDC on the API's own DB if accessible, or negotiated contract change. Saying "I'd ask for updated_at" is a senior answer |
+| "Watermark job ran with the wrong date and skipped a day. Recover?" | Backfill with explicit (start,end) params overriding the watermark; then fix watermark state. Parameterized backfills are a day-one requirement, not an afterthought |
+| "MERGE INTO is scanning the whole 10 TB table. Why?" | Missing partition filter in the merge condition — predicate must reference the partition column so pruning kicks in. Check the physical plan |
+| "Duplicate API responses caused double-counted revenue. Root cause?" | Non-idempotent ingestion (INSERT instead of MERGE) + retry after partial success. Fix: MERGE on natural key + stage-then-swap |
+| "Data arrives 3 days late for a monthly close report. Handle it?" | Reconciliation window: re-run the affected partitions via MERGE (idempotent, so safe); if outside the 48h window, route to a correction workflow with finance sign-off |
+
 ---
 
-## 6. Decision Trade-off Framework
+## 6. Scenario E: Design a Log Aggregation / Observability Platform
+
+### Problem Statement
+
+> Design a system that collects application logs from 2,000 services (500 GB/day), makes them searchable within 30 seconds, retains 90 days for debugging and 13 months for compliance, and alerts on error patterns.
+
+### High-Level Design
+
+```mermaid
+flowchart LR
+    subgraph Sources
+        S1["Service pods<br/>(stdout)"]
+        S2["Batch jobs"]
+        S3["Infra (LB, DB)"]
+    end
+    subgraph Collection
+        AG["Agents: Fluent Bit / Vector<br/>(DaemonSet per node)"]
+    end
+    subgraph Buffer
+        K["Kafka topic: logs<br/>(absorbs bursts,<br/>decouples indexers)"]
+    end
+    subgraph Hot
+        ES["Hot tier: OpenSearch / Elastic<br/>or ClickHouse<br/>90 days, SSD"]
+    end
+    subgraph Cold
+        C["Cold tier: S3 + Iceberg<br/>13 months, gzip<br/>query via Trino on demand"]
+    end
+    subgraph Serve
+        UI["Kibana / Grafana"]
+        AL["Alert manager<br/>(error-rate rules)"]
+    end
+
+    S1 --> AG
+    S2 --> AG
+    S3 --> AG
+    AG --> K
+    K --> ES
+    K --> C
+    ES --> UI
+    C -.->|"rare forensic queries"| UI
+    ES --> AL
+```
+
+### Key Decisions
+
+| Decision | Option A | Option B | Why pick |
+| :--- | :--- | :--- | :--- |
+| Agent | Fluent Bit | Logstash, Vector | Fluent Bit: tiny footprint (~10 MB), K8s-native. Vector: Rust, better transforms. Logstash: heavy JVM, legacy |
+| Hot store | OpenSearch | ClickHouse, Loki | OpenSearch: full-text search, mature. ClickHouse: 10-20x cheaper storage, SQL, weaker text search. Loki: cheapest, label-indexed only |
+| Buffer | Kafka | Direct-to-indexer | Kafka absorbs ES indexing backpressure (the classic ES-yellow-status killer). Always buffer |
+| Retention split | 90d hot + 13mo cold | All in hot tier | Hot-tier SSD costs dominate. 95% of queries hit <7 days; compliance queries are rare and tolerate minutes of Trino latency |
+| Sampling | Tail-based at agent | Head-based | Tail sampling for traces; for logs: keep all ERROR, sample INFO at high volume |
+
+**Alex:** Elasticsearch keeps falling over at ingest peaks. What do you change first?
+
+**Sam:** First, confirm the buffer: logs should flow Kafka → indexer consumers that batch bulk-index. Direct agent-to-ES means any ES slowdown backpressures into the agents and drops logs. Second, check index design: daily indices with ILM (index lifecycle management), not one giant index; shards sized 20–40 GB. Third, reduce cardinality of indexed fields — `message` as text is fine, but indexing `request_id` + `user_id` + 40 labels as keywords explodes memory. If the team can't operate ES, this is when ClickHouse or Loki enters the conversation.
+
+### Key Interview Answer
+
+> Log aggregation is agents on nodes (Fluent Bit) shipping to a Kafka buffer, consumers bulk-indexing into a hot store (OpenSearch/ClickHouse) for 90 days, with cold S3 retention for compliance. The buffer is non-negotiable — it's what keeps the indexer from dropping logs at peak. Cost control comes from the hot/cold split and from being deliberate about which fields get indexed.
+
+### Drill Questions (Scenario E)
+
+| Interviewer asks | Strong answer |
+| :--- | :--- |
+| "Logs must be searchable in 5 seconds, not 30." | Ingest→Kafka→bulk-index latency is the budget: flush intervals at agent (1s), consumer batch (1-2s), ES refresh_interval (1s). Achievable; costs CPU at the indexer |
+| "A service starts logging 100x normal volume. Blast radius?" | Per-service quotas at the agent or Kafka; circuit breaker that samples instead of drops-all; alert on volume anomaly (observability on the observability platform) |
+| "PII in logs?" | Redaction at the agent (regex/allowlist) before it leaves the node — PII that reaches the index is a compliance incident, not a config issue |
+| "Why not just CloudWatch/Stackdriver?" | Fine until multi-cloud, high cardinality, or cost (cloud log services charge ingest + retention + query; at 500 GB/day the bill typically crosses self-managed cost). Know the crossover exists |
+
+---
+
+## 7. Scenario F: Design a Feature Store for ML
+
+### Problem Statement
+
+> Design a feature store that serves ML models: offline features for training (point-in-time correct, TB scale) and online features for inference (P99 < 10 ms lookups), with one definition shared by both paths.
+
+### High-Level Design
+
+```mermaid
+flowchart LR
+    subgraph Sources
+        ST["Streams (Kafka)"]
+        BT["Batch (Iceberg)"]
+    end
+    subgraph Compute["Feature Computation"]
+        F1["Flink: real-time features<br/>(velocity, last-N counts)"]
+        F2["Spark/dbt: batch features<br/>(30-day aggregates)"]
+    end
+    subgraph Registry["Feature Registry"]
+        R["Definitions + owners +<br/>freshness SLAs<br/>(Feast / Tecton)"]
+    end
+    subgraph Offline["Offline Store (training)"]
+        OFF["Iceberg: point-in-time joins<br/>TB-scale history"]
+    end
+    subgraph Online["Online Store (serving)"]
+        ON["Redis / DynamoDB /<br/>Bigtable: key→feature vector"]
+    end
+    subgraph Consumption
+        TRN["Training jobs<br/>(point-in-time correct)"]
+        INF["Inference services<br/>P99 < 10 ms"]
+    end
+
+    ST --> F1
+    BT --> F2
+    F1 --> ON
+    F1 --> OFF
+    F2 --> OFF
+    R -.-> F1
+    R -.-> F2
+    OFF --> TRN
+    ON --> INF
+```
+
+### Key Decisions
+
+| Decision | Option A | Option B | Why pick |
+| :--- | :--- | :--- | :--- |
+| Online store | Redis | DynamoDB, Bigtable, Cassandra | Redis: fastest, in-memory cost. DynamoDB: managed, scales to zero ops, ~single-digit-ms P99. Pick by ops appetite; both hit the SLA |
+| Point-in-time join | Feast/Spark ASOF join | Manual timestamp joins | Training-serving skew comes from wrong PIT joins; never hand-roll. `ASOF JOIN` semantics: feature value as-of the label timestamp, not latest |
+| One definition | Registry (Feast) | Duplicate code in two pipelines | The #1 feature-store failure is training/serving skew from two implementations. Registry generates both paths |
+| Freshness tiers | Two paths (stream + batch) | Stream everything | Real-time features (velocity) stream; stable aggregates (30-day avg) batch. Streaming everything triples cost for features that change daily |
+
+**Alex:** What is training-serving skew and how does the store prevent it?
+
+**Sam:** Skew is when the features the model trained on differ from what it sees in production — from three causes: different code paths (fixed by the registry generating both), different data timing (fixed by point-in-time correct offline joins), and different freshness (fixed by documenting per-feature freshness SLAs — a model can't consume a 1-hour-old feature at inference if it trained on real-time values). The store's job is to make all three explicit.
+
+### Key Interview Answer
+
+> A feature store is a registry plus two serving paths: an offline store (Iceberg, point-in-time-correct joins for training) and an online store (Redis/DynamoDB, <10 ms lookups for inference). The registry is the core value: one feature definition generates both the batch and streaming computation, eliminating training-serving skew. Freshness is tiered — real-time features stream, stable aggregates batch.
+
+### Drill Questions (Scenario F)
+
+| Interviewer asks | Strong answer |
+| :--- | :--- |
+| "Online lookups spike to 50 ms P99 during model retraining. Why?" | Retraining bulk-reads the offline store AND backfills the online store; the backfill write burst contends with reads. Fix: separate write capacity / shadow online store + atomic swap |
+| "A feature has a bug — 3 models already trained on it." | Version features (feature_v2); retrain affected models; the registry's lineage (which models consumed which version) is what makes this answerable in hours not weeks |
+| "Why not just query the warehouse at inference time?" | Warehouse P99 is 100 ms – seconds under concurrency, not <10 ms; and you'd recouple models to analytics infra. The online store exists precisely to break that coupling |
+| "Cold-start: new user, no history. Features?" | Default/imputed values marked as such (is_cold_start flag as its own feature); never silently serve stale features of a different entity |
+
+---
+
+## 8. Decision Trade-off Framework
 
 A reusable framework for DE system design interviews:
 
@@ -394,7 +596,7 @@ A reusable framework for DE system design interviews:
 
 ---
 
-## 7. Quick Reference Cheatsheet
+## 9. Quick Reference Cheatsheet
 
 | Scenario | Key technology stack | State? | Serving |
 | :--- | :--- | :--- | :--- |
@@ -402,6 +604,8 @@ A reusable framework for DE system design interviews:
 | Real-time metrics | Gateway → Kafka → Flink → Druid/ClickHouse | Flink state (windows) | OLAP store direct |
 | Lakehouse | Flink (ingest) → Iceberg (medallion) → dbt (transform) | Iceberg catalog | Trino / Spark / DuckDB |
 | Incremental batch | Spark → Iceberg (high-watermark + merge into) | Iceberg files | Warehouse (Snowflake/Redshift) |
+| Log aggregation | Fluent Bit → Kafka buffer → bulk-index → OpenSearch + S3 cold | Kafka buffer, ES indices | Kibana/Grafana + Trino for cold |
+| Feature store | Registry (Feast) → Iceberg offline + Redis/DynamoDB online | Feature registry, online KV | Training (PIT joins) + inference (<10ms) |
 | All in one sentence? | Kafka decouples producers and consumers; Iceberg unifies batch and stream at the storage layer; Flink provides stateful stream processing between them. | | |
 
 ### Common Interview Traps
@@ -416,7 +620,7 @@ A reusable framework for DE system design interviews:
 
 ---
 
-## 8. Modern Cross-Cutting Concerns
+## 10. Modern Cross-Cutting Concerns
 
 Topics that span across system design scenarios — increasingly asked
 at senior/staff level.
@@ -538,7 +742,7 @@ distribution, volume, schema, lineage.
 
 ---
 
-## 9. Resources
+## 11. Resources
 
 - [Designing Data-Intensive Applications (Kleppmann)](https://dataintensive.net/) — foundational reference for distributed data systems
 - [Streaming Systems (Akidau / Chernyak / Lax)](https://streaming-system.com/) — watermarks, windows, triggers, exactly-once
