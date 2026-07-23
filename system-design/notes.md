@@ -14,7 +14,8 @@
 5. [Scenario D: Design an Incremental Batch Pipeline](#5-scenario-d-design-an-incremental-batch-pipeline)
 6. [Decision Trade-off Framework](#6-decision-trade-off-framework)
 7. [Quick Reference Cheatsheet](#7-quick-reference-cheatsheet)
-8. [Resources](#8-resources)
+8. [Modern Cross-Cutting Concerns](#8-modern-cross-cutting-concerns)
+9. [Resources](#9-resources)
 
 ---
 
@@ -415,7 +416,129 @@ A reusable framework for DE system design interviews:
 
 ---
 
-## 8. Resources
+## 8. Modern Cross-Cutting Concerns
+
+Topics that span across system design scenarios — increasingly asked
+at senior/staff level.
+
+---
+
+### Data Contracts
+
+A formal agreement between a data **producer** and **consumer** about
+schema, semantics, freshness, quality, and SLAs.
+
+```yaml
+# Example data contract (YAML)
+version: 1
+dataset: orders
+owner: payments-team
+schema:
+  order_id: { type: string, nullable: false, description: "UUID" }
+  amount:  { type: double,  nullable: false, min: 0 }
+  status:  { type: string,  nullable: false, enum: ["PENDING","SHIPPED","DELIVERED"] }
+freshness:
+  sla: 15 minutes
+  lag_tolerance: 5 minutes
+quality:
+  - row_count > 0
+  - amount > 0
+  - no_null_order_ids
+```
+
+**Why they matter:**
+- Break the "toss it over the wall" pipeline pattern
+- Producers know what they commit to; consumers can trust the data
+- Enable independent team ownership (Data Mesh enabler)
+- Tools: dbt contracts, Great Expectations, Soda, DataHub
+
+**Interview angle:** "How do you ensure downstream consumers don't break
+when the source schema changes?" — Answer: Data contracts with schema
+registry + CI checks on producer changes.
+
+---
+
+### Data Mesh (Zhamak Dehghani)
+
+A decentralized sociotechnical architecture where **domain teams own
+their data as a product**.
+
+| Principle | What It Means | DE Impact |
+|---|---|---|
+| **Domain ownership** | Each domain team owns its data pipelines and serves data | No central data team bottleneck |
+| **Data as a product** | Data is treated like a product (documented, versioned, discoverable) | Requires SLAs, quality monitoring, documentation |
+| **Self-serve platform** | Shared infrastructure for storage, compute, catalog | Platform team builds and maintains the foundation |
+| **Federated governance** | Global standards (schema, PII, access) + local autonomy | Polaris/REST catalog, OpenLineage, DataHub |
+
+**When it works:** Large organizations (500+ engineers), clear domain
+boundaries, mature platform team.
+**When it fails:** No platform investment, teams not ready to own data,
+unclear domain boundaries.
+
+**Interview angle:** "Your company is growing fast and the central data
+team is a bottleneck. How do you scale?" — Discuss Data Mesh principles
+but acknowledge the organizational complexity.
+
+---
+
+### Reverse ETL
+
+Syncing data from the **warehouse** back into **operational tools**
+(Salesforce, HubSpot, Zendesk, ad platforms).
+
+```
+Source systems ──► Warehouse ──► Reverse ETL ──► Operational tools
+       │                                        │
+  (OLTP, events)                     (CRM, support, marketing)
+```
+
+| Aspect | Forward ETL | Reverse ETL |
+|---|---|---|
+| Direction | Source → Warehouse | Warehouse → Operational tools |
+| Purpose | Analytics | Operations / Activation |
+| Tools | Fivetran, Airbyte, Stitch | Census, Hightouch, Grouparoo |
+| Latency tolerance | Hours to days | Minutes to hours |
+
+**Interview angle:** "How would you make customer analytics available to
+the CRM team?" — Warehouse → segment definition (SQL) → Reverse ETL →
+CRM sync.
+
+---
+
+### Data Observability
+
+Monitoring **data quality and pipeline health** beyond infrastructure
+metrics (CPU/memory). Often described as "monitoring + alerting +
+lineage + quality" for data.
+
+```
+Five pillars of data observability:
+
+1. Freshness  — Is the data up to date?
+2. Distribution — Has the data profile changed?
+3. Volume    — Are we missing rows?
+4. Schema    — Did the structure change?
+5. Lineage   — Where did this data come from?
+```
+
+| Tool | Type | Key Feature |
+|---|---|---|
+| Monte Carlo | SaaS | End-to-end observability, automated monitoring |
+| Sifflet | SaaS | Column-level lineage, data quality dashboards |
+| Bigeye | SaaS | Auto-classification of metric anomalies |
+| OpenLineage | Open-source | Standard for collecting lineage metadata |
+| Marquez | Open-source | OpenLineage-compatible lineage UI |
+| Great Expectations | Open-source | Data quality tests (expectations) |
+| Soda | Open-source | SQL-based data quality checks |
+| DataHub | Open-source | Metadata + lineage + search |
+
+**Interview angle:** "Your CEO asks: 'Can we trust the dashboard?' —
+How do you answer?" — Walk through the five pillars: freshness,
+distribution, volume, schema, lineage.
+
+---
+
+## 9. Resources
 
 - [Designing Data-Intensive Applications (Kleppmann)](https://dataintensive.net/) — foundational reference for distributed data systems
 - [Streaming Systems (Akidau / Chernyak / Lax)](https://streaming-system.com/) — watermarks, windows, triggers, exactly-once

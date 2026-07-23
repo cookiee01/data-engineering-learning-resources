@@ -138,12 +138,24 @@ Appears in **every** data engineering interview. Most tested skill across all co
 - Sensor vs operator
 - XCom for lightweight inter-task data
 
+### Data Contracts
+- Schema agreements between data producers and consumers (producer commits to shape/freshness, consumer uses it safely)
+- Tools: dbt contracts, Great Expectations, Soda, DataHub
+- CI checks on schema changes — break build if contract violated
+- Related: Schema Registry (Avro/Protobuf) for streaming contracts
+
 ### Data Quality & Observability
 - Great Expectations / Soda for data validation
-- Data contracts — schema agreements between producers and consumers
+- Five pillars: freshness, distribution, volume, schema, lineage
+- Tools: Monte Carlo, Sifflet, Bigeye (SaaS); OpenLineage + Marquez (OSS)
 - Data freshness, completeness, accuracy checks
-- Lineage tracking (OpenLineage, Marquez)
-- SLOs for data pipelines (freshness, correctness)
+- Lineage tracking for root cause analysis
+- SLOs for data pipelines (freshness, correctness, completeness)
+
+### Data Mesh & Reverse ETL
+- **Data Mesh** (Zhamak Dehghani): domain ownership, data as a product, self-serve platform, federated governance
+- **Reverse ETL** — syncing warehouse data to operational tools (Census, Hightouch)
+- Enables operational analytics without operational DB impact
 
 ### Lakehouse Architecture
 - Unifying data lakes and warehouses
@@ -369,6 +381,11 @@ Prepare 2-3 stories using the STAR method (Situation, Task, Action, Result).
 | Flink practice roadmap | `apache-flink/practice-roadmap.md` |
 | Iceberg architecture | `apache-iceberg/notes.md` |
 | Networking basics | `foundations/networking.md` |
+| Data modeling | `foundations/data-modeling.md` |
+| File formats (Parquet/Avro/ORC) | `foundations/file-formats.md` |
+| Distributed systems concepts | `foundations/distributed-systems.md` |
+| OLAP vs OLTP | `foundations/olap-vs-oltp.md` |
+| Containerization (Docker/K8s) | `foundations/containerization.md` |
 | System design & caching | `system-design/notes.md`, `system-design/caching.md` |
 | EMR | `emr/notes.md` |
 | DSA (to be built) | `data-structures-and-algorithms/` |
