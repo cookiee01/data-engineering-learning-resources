@@ -569,7 +569,7 @@ function updateStreak() {
 
 // ===== THEME =====
 function applyTheme() {
-  document.getElementById('app').classList.toggle('dark', state.dark);
+  document.documentElement.classList.toggle('dark', state.dark);
   document.getElementById('themeToggle').innerHTML = state.dark ? '<i class="fa-solid fa-sun"></i>' : '<i class="fa-solid fa-moon"></i>';
 }
 function toggleTheme() { state.dark = !state.dark; applyTheme(); localStorage.setItem('de_dark', state.dark); }
