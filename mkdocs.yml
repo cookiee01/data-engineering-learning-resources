@@ -81,6 +81,16 @@ nav:
   - Foundations:
     - Networking: foundations/networking.md
     - Progress: interview-prep/foundations-progress.md
+  - SQL:
+    - Notes: sql/notes.md
+  - Data Modeling:
+    - Notes: data-modeling/notes.md
+  - dbt:
+    - Notes: dbt/notes.md
+  - Snowflake:
+    - Notes: snowflake/notes.md
+  - AWS Data Engineering:
+    - Notes: aws-data-engineering/notes.md
   - Python:
     - Notes: python/notes.md
   - System Design:

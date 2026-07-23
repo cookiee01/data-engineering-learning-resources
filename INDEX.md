@@ -9,13 +9,28 @@ This is the navigation hub for the repo.
 4. `apache-flink/`
 5. `apache-spark-pyspark/`
 6. `apache-iceberg/`
-7. `python/` — packaging, deployment, versioning, tooling
+7. `sql/` — SQL deep-dive for data engineers
+8. `data-modeling/` — star schema, Kimball, SCD
+9. `dbt/` — modern data stack transformation
+10. `snowflake/` — warehouse architecture and tuning
+11. `aws-data-engineering/` — AWS services, patterns, cost
+12. `python/` — packaging, deployment, versioning, tooling
 8. AWS analytics stack: `emr/`
 
 ## General Resource Hubs
 - [DataEngineering.wiki – Learning Resources](https://dataengineering.wiki/Learning+Resources)
 
 ## Topics
+- SQL
+  - `sql/notes.md` (query execution order, window functions, joins, CTEs, performance, anti-patterns, partitioning)
+- Data Modeling
+  - `data-modeling/notes.md` (star schema, fact types, dimension types, SCD 0–6, Kimball vs Inmon vs Data Vault, grain)
+- dbt
+  - `dbt/notes.md` (models, sources, tests, materializations, Jinja, incremental, CI/CD, Snowflake/Databricks patterns)
+- Snowflake
+  - `snowflake/notes.md` (architecture, virtual warehouses, micro-partitions, clustering, time travel, zero-copy clone, cost management, Snowpipe, streams/tasks)
+- AWS Data Engineering
+  - `aws-data-engineering/notes.md` (S3, Glue, EMR, Redshift, Lambda, Step Functions, Kinesis, IAM, cost optimization, architecture patterns)
 - Python
   - `python/notes.md` (packaging, pyproject.toml, wheels, Poetry/uv, SemVer, deployment, code quality, enterprise tooling)
 - Foundations
