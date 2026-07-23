@@ -8,7 +8,7 @@ PySpark Refresher - Run this file to warm up.
 import os, pathlib
 
 # resolve data/ and output/ relative to this script's directory
-BASE = pathlib.Path(__file__).resolve().parent
+BASE = pathlib.Path(__file__).resolve().parent.parent
 DATA = str(BASE / "data")
 OUT  = str(BASE / "output")
 
