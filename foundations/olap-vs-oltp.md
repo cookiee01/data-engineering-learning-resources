@@ -151,7 +151,58 @@ Total:          40x compression vs raw
 
 ---
 
-## 5. Real Interview Questions
+## 5. How OLAP Engines Execute — MPP Internals
+
+**Question:** *"Snowflake runs a query across 8 nodes. What actually happens to my SQL?"*
+
+```mermaid
+flowchart TB
+    SQL["SELECT region, SUM(amount)<br/>FROM orders<br/>WHERE year=2024<br/>GROUP BY region"]
+    SQL --> PLAN["Query Optimizer<br/>(cost-based)"]
+    PLAN --> FRAG1["Fragment 1: SCAN + FILTER<br/>each node reads its micro-partitions,<br/>prunes by zone map (year=2024)"]
+    PLAN --> FRAG2["Fragment 2: PARTIAL AGG<br/>each node computes<br/>SUM(amount) per region locally"]
+    PLAN --> FRAG3["Fragment 3: SHUFFLE<br/>redistribute by region hash"]
+    PLAN --> FRAG4["Fragment 4: FINAL AGG<br/>merge partial sums"]
+
+    subgraph N1["Node 1"]
+        A1["scan 125 MB<br/>partial agg: region→sum"]
+    end
+    subgraph N2["Node 2"]
+        A2["scan 125 MB<br/>partial agg: region→sum"]
+    end
+    subgraph N3["Node 3...8"]
+        A3["scan 125 MB each"]
+    end
+
+    FRAG1 --> N1
+    FRAG1 --> N2
+    FRAG1 --> N3
+    N1 -->|"6 region sums"| FRAG3
+    N2 -->|"6 region sums"| FRAG3
+    N3 -->|"6 region sums"| FRAG3
+    FRAG3 --> FRAG4
+    FRAG4 --> OUT["Result: 6 rows<br/>1 TB scanned → KB shuffled"]
+```
+
+**Key internals to name in an interview:**
+
+| Technique | What It Does | Systems |
+|---|---|---|
+| **MPP (Massively Parallel Processing)** | Query split into fragments, executed in parallel across nodes, results merged | Redshift, Snowflake, BigQuery, ClickHouse |
+| **Vectorized execution** | Process 1000s of values per CPU instruction (SIMD) instead of row-at-a-time | ClickHouse, DuckDB, Snowflake, Trino |
+| **Sparse / zone-map index** | Store min/max per block; skip blocks that can't match the filter | All OLAP systems |
+| **Late materialization** | Read filter columns first, defer reading other columns until rows qualify | ClickHouse, Parquet readers |
+| **Runtime filtering / bloom join** | Build a bloom filter on the small side of a join, push it to the scan | Redshift, Trino, Databricks |
+
+> [!NOTE]
+> **The interview soundbite:** "OLAP is fast because of column pruning
+> (read less), zone maps (skip more), vectorization (CPU-efficient on
+> what remains), and MPP (parallelize the rest). Every modern warehouse
+> is these four ideas with different packaging."
+
+---
+
+## 6. Real Interview Questions
 
 ### Q1: "Design a pipeline that takes orders from PostgreSQL and makes them queryable in Redshift within 15 minutes."
 
@@ -267,11 +318,74 @@ flowchart LR
 3. Use **COPY with manifest** instead of individual file uploads
 4. If CDC isn't possible: **partition the extract** by date and parallelize
 
+### Q6: "Snowflake vs Redshift vs BigQuery — how do you choose?"
+
+| Dimension | Snowflake | Redshift | BigQuery |
+|---|---|---|---|
+| **Architecture** | Storage/compute separated; virtual warehouses scale independently | RA3 separates storage/compute; older node types couple them | Fully serverless; slots allocated per query |
+| **Scaling** | Resize warehouse (seconds), multi-cluster for concurrency | Concurrency scaling + elastic resize | Automatic (petabyte-scale by default) |
+| **Pricing model** | Per-second warehouse credits + storage | Node-hours (RA3) or serverless RPU | On-demand bytes-scanned or flat-rate slots |
+| **Zero-copy cloning** | Yes — instant table clones for dev/test | No (snapshots, slower) | Table snapshots |
+| **Best fit** | Mixed workloads, many teams, data sharing | AWS-heavy shops, existing Redshift estate | GCP shops, spiky unpredictable load |
+
+**Interview answer:** "All three are MPP columnar warehouses with
+storage/compute separation now. The decision is ecosystem + pricing
+model: Snowflake for multi-team governance and data sharing, BigQuery
+for serverless spiky workloads, Redshift when you're all-in on AWS
+with predictable load."
+
+### Q7: "ClickHouse answers queries in 100ms that take Redshift 10 seconds. What's it doing differently?"
+
+```
+1. Sparse primary index: one index entry per granule (8,192 rows),
+   not per row — the whole index fits in RAM
+2. Vectorized execution: processes columns in SIMD batches
+   (thousands of values per instruction)
+3. Aggressive skipping: min/max + set + bloom-filter indexes per granule
+4. No ACID overhead: append-mostly design, async mutations
+5. Data layout control: ORDER BY in the table definition IS the
+   physical sort — queries matching the sort prefix skip ~everything
+
+Trade: ClickHouse gives up transactions, efficient UPDATE/DELETE,
+and easy joins on huge dims. It's an OLAP specialist, not a warehouse
+replacement for general workloads.
+```
+
+### Q8: "Analysts need 5 years of history, but warehouse storage costs are exploding. Options?"
+
+```mermaid
+flowchart TD
+    COST["Warehouse: 500 TB × 5 years<br/>= cost explosion"]
+    COST --> O1["Option A: Hot/cold split<br/>Hot: 13 months in warehouse<br/>Cold: 4 years in Iceberg on S3<br/>Query cold via Trino/Spark<br/>when needed (rare)"]
+    COST --> O2["Option B: Aggregate + drop detail<br/>Keep daily rollups in warehouse<br/>Raw events in cheap lake storage"]
+    COST --> O3["Option C: Warehouse-native tiering<br/>Snowflake: automatic (S3-backed)<br/>BigQuery: long-term storage pricing<br/>(~50% cheaper, auto after 90 days)"]
+
+    O1 -.->|"Typical outcome:<br/>60-80% cost reduction<br/>for <5% query slowdown<br/>(cold queries are rare)"| WIN["Hot/cold split is the<br/>standard answer"]
+```
+
+### Q9: "Lambda vs Kappa architecture for a metrics platform — which and why?"
+
+| Aspect | Lambda (batch + speed layers) | Kappa (stream only) |
+|---|---|---|
+| **Code paths** | Two (batch + streaming) — must keep in sync | One (streaming) |
+| **Reprocessing** | Easy: rerun batch layer | Replay stream from retained history |
+| **Latency** | Speed layer: seconds; batch: hours | Seconds throughout |
+| **Ops burden** | High (two systems) | Lower (one system) |
+| **Correctness** | Batch corrects speed-layer drift | Depends on retention + replay fidelity |
+
+**Interview answer:** "Kappa when retention and replay cover your
+reprocessing window (7-30 days is typical with Kafka). Lambda when you
+need arbitrary historical reprocessing with different logic — the batch
+layer over the lake is the source of truth, the stream layer is a
+fast approximation. Most teams in 2026: **Kappa for the hot path,
+periodic batch on Iceberg for the cold truth** — which is really a
+pragmatic Lambda with the lake as the batch layer."
+
 ---
 
-## 6. Decision Trees — Whiteboard for Interview
+## 7. Decision Trees — Whiteboard for Interview
 
-### 6.1 Architecture Selection
+### 7.1 Architecture Selection
 
 ```mermaid
 flowchart TD
@@ -289,7 +403,7 @@ flowchart TD
     PIPELINE -->|"Hours"| B["Batch ETL"]
 ```
 
-### 6.2 Performance Diagnosis (Query Slow?)
+### 7.2 Performance Diagnosis (Query Slow?)
 
 ```mermaid
 flowchart TD
@@ -309,7 +423,7 @@ flowchart TD
 
 ---
 
-## 7. Quick Reference — Interview Edition
+## 8. Quick Reference — Interview Edition
 
 | Question | Answer |
 |---|---|
@@ -323,3 +437,8 @@ flowchart TD
 | **Redshift query scanning TB but returning GB?** | Check sort key, distribution style, column projection, compression |
 | **PostgreSQL query slow for dashboard?** | It's an OLAP workload on an OLTP DB — replicate to a warehouse |
 | **Fastest path from OLTP to OLAP?** | CDC (Debezium → Kafka → Flink → warehouse) for minutes latency |
+| **Why OLAP is fast (4 reasons)?** | Column pruning (read less) + zone maps (skip more) + vectorization (CPU-efficient) + MPP (parallelize) |
+| **Snowflake vs Redshift vs BigQuery?** | Ecosystem + pricing model decide; all three are MPP columnar with separated storage/compute |
+| **Why ClickHouse is sub-second?** | Sparse index in RAM + vectorized execution + physical ORDER BY + no ACID overhead |
+| **5 years of data, cost explosion?** | Hot/cold split: 13 months warehouse, 4 years Iceberg on S3 via Trino |
+| **Lambda vs Kappa?** | Kappa when Kafka retention covers reprocessing; pragmatic Lambda = stream hot path + Iceberg batch truth |
