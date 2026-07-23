@@ -244,6 +244,50 @@ resources:
 | **CronJob** | Scheduled jobs | Daily metadata refresh, compaction tasks |
 | **Custom Resource (CRD)** | Application-specific lifecycle | FlinkDeployment, SparkApplication |
 
+### 3.5 K8s Networking — How Spark Components Actually Talk
+
+**Question:** *"Spark driver and executors run in different pods. How do they find and reach each other?"*
+
+```mermaid
+flowchart LR
+    subgraph K8sCluster["Kubernetes Cluster"]
+        subgraph DriverPod["Driver Pod (10.1.2.5)"]
+            D["Spark Driver<br/>listens on :7078 (RPC)<br/>:4040 (UI)"]
+        end
+        subgraph ExecPod1["Executor Pod 1 (10.1.3.7)"]
+            E1["Spark Executor"]
+        end
+        subgraph ExecPod2["Executor Pod 2 (10.1.4.9)"]
+            E2["Spark Executor"]
+        end
+        SVC["Headless Service<br/>my-spark-driver-svc<br/>(clusterIP: None → DNS returns<br/>pod IP directly)"]
+    end
+
+    E1 -->|"resolve driver hostname:<br/>spark://my-spark-driver-svc:7078"| SVC
+    SVC -->|"DNS → 10.1.2.5"| E1
+    E2 --> SVC
+    E1 -->|"register + heartbeat → driver:7078"| D
+    D -->|"launch tasks → executor"| E1
+    D -->|"launch tasks → executor"| E2
+    E1 -.->|"shuffle fetch<br/>(executor-to-executor, pod IPs)"| E2
+```
+
+**Key networking facts for interviews:**
+
+| Mechanism | What It Does | DE Relevance |
+|---|---|---|
+| **Pod IP (flat network)** | Every pod gets a routable IP cluster-wide | Executors reach each other directly for shuffle |
+| **Headless Service** | `clusterIP: None` — DNS returns pod IPs, not a VIP | Spark auto-creates one for the driver so executors can resolve its pod IP |
+| **Service (ClusterIP)** | Stable virtual IP load-balanced across pods | Airflow UI, Flink JobManager REST |
+| **NetworkPolicy** | Firewall rules between pods/namespaces | Isolate prod pipelines from dev |
+| **Ingress / LoadBalancer** | External access into the cluster | Exposing Spark UI / Flink Dashboard to engineers |
+
+> [!TIP]
+> Shuffle traffic is **pod-to-pod**, not through any service mesh hop.
+> If your cluster runs a service mesh (Istio/Linkerd), ensure Spark
+> namespaces are excluded — a proxy hop on every shuffle block can
+> halve throughput.
+
 ---
 
 ## 4. Data Engineering on Kubernetes
@@ -567,6 +611,80 @@ Plus 1 for driver → 18 nodes
 > Don't pack executors to the absolute limit — leave headroom for
 > dynamic allocation spikes and pod startup.
 
+### Q7: "Pod is in CrashLoopBackOff. Walk me through debugging."
+
+```mermaid
+flowchart TD
+    CLB["CrashLoopBackOff:<br/>container starts, dies,<br/>K8s backs off restart (exponential)"]
+    CLB --> S1["kubectl describe pod<br/>→ Last State, Exit Code, Events"]
+    S1 --> E{"Exit code?"}
+
+    E -->|"137"| OOM["OOMKilled<br/>→ raise memory limit<br/>or fix memory leak"]
+    E -->|"1"| APP["Application error<br/>→ kubectl logs --previous<br/>for the dead container's logs"]
+    E -->|"126/127"| CMD["Command problem<br/>→ bad ENTRYPOINT/CMD,<br/>missing binary, permissions"]
+    E -->|"N/A (never started)"| IMG["ImagePullBackOff<br/>→ wrong tag, missing registry<br/>secret, or private repo auth"]
+
+    APP --> LOGS["kubectl logs pod-name --previous<br/>(--previous is the one people forget:<br/>current container has no logs<br/>because it just restarted)"]
+```
+
+**The three commands that solve 90% of cases:**
+```bash
+kubectl describe pod <pod>          # events, exit code, last state
+kubectl logs <pod> --previous       # logs from the crashed container
+kubectl get events --sort-by=.lastTimestamp   # cluster-side story
+```
+
+### Q8: "Design CI/CD for a PySpark job that runs on K8s. Include testing and rollback."
+
+```mermaid
+flowchart LR
+    PR["PR opened"] --> CI1["1. Unit tests (pytest)<br/>2. Lint + type check"]
+    CI1 --> CI2["3. Build image<br/>tag: sha-abc123"]
+    CI2 --> CI3["4. Integration test:<br/>kind cluster in CI,<br/>submit job, assert output"]
+    CI3 --> MERGE["Merge to main"]
+    MERGE --> CD1["5. Push image to registry"]
+    CD1 --> CD2["6. Deploy to staging<br/>(helm/kustomize)"]
+    CD2 --> CD3["7. Smoke test staging"]
+    CD3 --> CD4["8. Prod deploy<br/>canary: run new image<br/>alongside old for 1 cycle"]
+    CD4 --> CD5{"Metrics OK?<br/>(duration, row counts,<br/>data quality checks)"}
+    CD5 -->|"Yes"| DONE["Promote"]
+    CD5 -->|"No"| RB["Rollback = redeploy<br/>previous image tag<br/>(immutable tags make this<br/>a 30-second operation)"]
+```
+
+**Key principles:**
+- **Immutable image tags** (git SHA, never `latest`) — rollback is redeploying the old tag
+- **Data pipeline smoke tests** assert on *outputs* (row counts, null rates, freshness), not just "job succeeded"
+- **Canary for batch** = run the new version on yesterday's data, compare outputs before swapping
+
+### Q9: "A Flink job's checkpoints are timing out after you moved to K8s. Same job was fine on YARN. What changed?"
+
+**Diagnosis:**
+```
+Checkpoint timeout = state snapshot didn't finish in time.
+
+On K8s, the usual suspects:
+
+1. Storage backend: YARN setup used HDFS (fast, local-ish).
+   K8s setup points checkpoints at S3 with default s3a configs
+   → small-file writes + no multipart tuning = slow uploads.
+   Fix: state.backend=rocksdb (incremental), s3 multipart
+   upload enabled, fs.s3a.fast.upload=true
+
+2. CPU throttling: pod has limits.cpu = 2 but the TM was sized
+   for 4 on YARN. RocksDB compaction + upload threads starve.
+   Fix: kubectl describe pod → look for CPU throttling metrics;
+   raise limits or reduce taskmanager.numberOfTaskSlots
+
+3. Network: checkpoints cross availability zones or a NAT gateway
+   with bandwidth caps.
+   Fix: check pod/node AZ placement; endpoint in same region
+```
+
+**The K8s-specific insight:** "Same job, different platform" issues are
+almost always **resource spec mismatches** (CPU limits throttle) or
+**storage config differences** (HDFS locality vs S3 defaults), not the
+platform itself.
+
 ---
 
 ## 6. Quick Reference — Interview Edition
@@ -585,3 +703,9 @@ Plus 1 for driver → 18 nodes
 | **OOMKilled diagnosis?** | Check pod status → reason: OOMKilled (137) → increase memory limit or fix memory leak |
 | **Executors per node?** | CPU is usually the limit. Reserve 10-15% for system overhead |
 | **Local dev without cloud?** | Docker Compose — ZK + Kafka + Schema Registry + Flink in one YAML file |
+| **Driver-executor discovery?** | Headless service — Spark auto-creates it; DNS resolves driver pod IP |
+| **Shuffle traffic path?** | Pod-to-pod direct. Keep Spark namespaces out of service mesh |
+| **CrashLoopBackOff debug?** | `describe pod` (exit code) → `logs --previous` (crashed container's logs) |
+| **Exit 137?** | OOMKilled — raise memory limit or fix leak |
+| **CI/CD for Spark on K8s?** | Immutable SHA tags, output-asserting smoke tests, canary = rerun yesterday's data, rollback = old tag |
+| **Checkpoints slow after K8s move?** | CPU throttling on pod limits, or S3 defaults vs HDFS locality — not the platform |
