@@ -7,11 +7,11 @@ This is the baseline local setup to confirm end-to-end streaming:
 
 ## Source Infra
 
-The Docker Compose file and connector scripts live in the [`data-engineering-learning-lab`](https://github.com/anomalyco/data-engineering-learning-lab) repo. Clone it alongside this repo:
+The Docker Compose file and connector scripts live in the [`data-engineering-learning-lab`](https://github.com/cookiee01/data-engineering-learning-lab) repo. Clone it alongside this repo:
 
 ```bash
 cd ..
-git clone https://github.com/anomalyco/data-engineering-learning-lab.git
+git clone https://github.com/cookiee01/data-engineering-learning-lab.git
 cd data-engineering-learning-resources
 ```
 
