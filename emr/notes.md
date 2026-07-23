@@ -1332,6 +1332,31 @@ I default to EMR on EC2 for most use cases because of its simplicity and full ap
 
 ---
 
+## 16. Quick Reference — Interview Edition
+
+| Question | Short Answer |
+|---|---|
+| **EMR in one line?** | Managed Hadoop/Spark clusters on AWS — transient, S3-backed, fleet-priced |
+| **EMR vs Glue?** | EMR: full control, any engine, instance-level pricing. Glue: serverless Spark, simpler, less control |
+| **EMR vs Databricks?** | EMR: cheaper, AWS-native, more ops. Databricks: Photon speed, notebooks, less ops, costs more |
+| **Transient vs persistent?** | Transient for scheduled batch (pay per run). Persistent only for interactive/ad-hoc with managed scaling |
+| **Instance fleet vs group?** | Fleets: mixed types + spot %, better price/capacity. Groups: simpler, older pattern |
+| **Spot for task nodes?** | Yes — 60-80% cost cut, Spark tolerates task-node loss. Never spot master; core nodes cautious |
+| **HDFS or S3?** | S3 as data layer (persistent, decoupled). HDFS only for transient shuffle/temp |
+| **EMRFS consistent view?** | Deprecated since June 2023 — S3 is strongly consistent since Dec 2020. Disable it, delete the DynamoDB table |
+| **S3 committer?** | Use the S3A committers (directory or magic) — never the default FileOutputCommitter v1 for S3 (rename = copy+delete = slow + non-atomic) |
+| **Small files on S3?** | coalesce/repartition before write, or S3DistCp merge, or write via Iceberg with compaction |
+| **Cluster won't scale?** | Check `ContainersPending` metric — if high with no scale, managed-scaling cap or subnet IP exhaustion |
+| **Spot reclaim storms?** | Diversify instance types in the fleet (5+ types), enable decommissioning, checkpoint to S3 |
+| **Bootstrap vs step?** | Bootstrap: cluster setup (install, config) before apps start. Step: actual job submission |
+| **EMR on EKS vs EC2?** | EKS if org runs K8s and wants shared capacity. EC2 default for simplicity |
+| **EMR Serverless when?** | Bursty short Spark jobs, no ops team. Not for Hive/Presto/HBase |
+| **Cheapest EMR pattern?** | Transient cluster + instance fleets (spot task) + S3 + auto-terminate + managed scaling |
+| **Debugging slow job?** | CloudWatch ContainersPending → Spark History Server stage times → shuffle bytes → skew → S3 503s → GC% |
+| **100 jobs nightly?** | ~5 concurrent transient clusters, 20 jobs each, Step Functions orchestration, fail-fast + retry |
+
+---
+
 ## Resources
 
 - [AWS EMR Documentation](https://docs.aws.amazon.com/emr/)
