@@ -357,6 +357,54 @@ branch index (varint) costs 1 byte per field per message even when null.
   only for present entries)
 - Accept it: 80 bytes is still 10x cheaper than JSON's key names
 
+### Q8: "One Kafka topic must carry 12 different event types. How do you design the message envelope?"
+
+**Option A — Union envelope (Avro union / Protobuf oneof):**
+```json
+{
+  "type": "record", "name": "Envelope",
+  "fields": [
+    {"name": "event_ts", "type": "long"},
+    {"name": "payload", "type": [
+      "OrderCreated", "OrderShipped", "PaymentFailed", "... 9 more"
+    ]}
+  ]
+}
+```
+- Registry enforces compat across all 12 types in one subject
+- Consumers deserialize generically, switch on payload type
+- Cost: every type change bumps the envelope schema
+
+**Option B — Header-routed flat topic:**
+- Message key = event type name, value = type-specific schema
+- Each type gets its own subject (`orders-ordercreated-value`)
+- Consumers filter by key, deserialize per subject
+- Cost: consumers must know all subjects; no envelope-level invariants
+
+**Option C — One topic per type (the honest default for 12 types):**
+- Cleanest contracts, independent evolution, per-type retention
+- Cost: topic sprawl; consumers subscribe to many topics
+
+**Decision:** A and B fit when types share consumers and ordering matters
+across types (e.g., order lifecycle events). C fits when types have
+different owners and consumers.
+
+### Q9: "You're exposing a public API payload format to external partners. JSON Schema, Avro, or Protobuf?"
+
+| Criterion | JSON Schema | Avro | Protobuf |
+|---|---|---|---|
+| Partner codegen | Every language has JSON; schema validation libs everywhere | Avro libs needed | protoc + per-lang plugins |
+| Human debuggability | Perfect | Poor (binary) | Poor (binary) |
+| Payload size | Largest | Small | Smallest |
+| Evolution discipline | Weak (validation only) | Strong (registry + resolution) | Strong (field numbers + reserved) |
+| Partner onboarding cost | Lowest | Medium | Medium-high |
+
+**Answer:** Public API → **JSON + JSON Schema**, because partner
+onboarding cost dominates all other factors. Internal high-volume
+traffic between your own services → Protobuf or Avro. The hybrid many
+companies ship: **JSON externally, Avro/Protobuf at the boundary
+internally** (the API gateway translates).
+
 ---
 
 ## 6. Decision Tree — Whiteboard for Interview
