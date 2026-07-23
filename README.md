@@ -2,47 +2,73 @@
 
 A curated, notes-first repository for learning and interview preparation.
 
-## Getting Started
+## Day 1 Quick-Start (Practice, Don't Just Read)
+
+### 1. Run real PySpark code against sample data
 
 ```bash
-git clone https://github.com/anomalyco/data-engineering-learning-resources.git
-cd data-engineering-learning-resources
+# Set up the environment (one-time)
+cd apache-spark-pyspark
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+
+# Run your first PySpark job
+python code/00_getting_started.py
 ```
 
-**View all notes in a browsable site** (search, dark mode, code copy, quiz app):
+This script reads `data/orders.csv`, does aggregations, window functions, Spark SQL, and writes output to `output/`. Open `index.html` in the output folder to see the results.
+
+### 2. Test yourself with the quiz app
 
 ```bash
+# Browse all notes + use the interactive quiz
 pip install mkdocs-material
 mkdocs serve
 # Open http://localhost:8000
 ```
 
-**Or just read the markdown files directly** — start at `INDEX.md`.
+The site includes flashcards and a multiple-choice quiz across 14 topics with XP tracking — all in your browser, no backend needed.
 
-## Prerequisites
-- Python 3.8+ and `pip` (only needed for the MkDocs site)
-- No other dependencies required
+### 3. What to do next
 
-## How To Navigate
-- Start at `INDEX.md` for the table of contents.
-- Each topic folder contains short, clarity-first notes and links.
-- Use `CHANGELOG.md` to see what changed recently.
+| Day | Activity |
+|-----|----------|
+| **1** | Run the PySpark script above, explore the output, take a quiz round |
+| **2** | Read `sql/notes.md`, then practice the 5 SQL exercises in the interview cheatsheet section |
+| **3** | Read `apache-spark-pyspark/notes.md` (Spark internals), modify the PySpark script to use a different join type |
+| **Week 1** | Follow the 8-week sprint plan in `interview-prep/2-month-sprint-plan.md` |
 
-### Interactive Mode
-The MkDocs site includes flashcards and a multiple-choice quiz that tracks XP and progress via localStorage — no backend needed.
+## Read All Notes
+
+**Browse online** — `mkdocs serve` gives you search, dark mode, and diagrams:
+```bash
+pip install mkdocs-material
+mkdocs serve
+```
+
+**Or read markdown files directly** — start at `INDEX.md` for the full table of contents.
 
 ## Repo Structure
-- `apache-flink/` — notes, setup guide, practice roadmap
-- `apache-spark-pyspark/` — deep notes, Q&A journey, practice code
-- `apache-kafka/` — notes and resources
-- `apache-iceberg/` — architecture and interview notes
-- `emr/` — EMR/Hadoop notes
-- `foundations/` — networking and distributed systems fundamentals
-- `system-design/` — system design notes
-- `interview-prep/` — roadmap, sprint plan, quiz app, progress tracking
 
-## Contributing
-See `CONTRIBUTING.md` for:
-- how to add resources/notes
-- note-writing guidelines (clear + production-oriented)
-- how to update the changelog
+| Topic | What's here |
+|-------|-------------|
+| **SQL** | `sql/notes.md` — window functions, joins, query optimization, anti-patterns |
+| **PySpark / Databricks** | `apache-spark-pyspark/` — execution model, tuning, runnable code, sample data |
+| **Kafka** | `apache-kafka/notes.md` — ISR, acks, exactly-once, compaction, ops |
+| **Flink** | `apache-flink/notes.md` — state, watermarks, checkpoints, backpressure |
+| **Iceberg** | `apache-iceberg/notes.md` — hidden partitioning, CoW vs MoR, time travel |
+| **Data Modeling** | `data-modeling/notes.md` — star schema, SCD, grain, Kimball vs Data Vault |
+| **dbt** | `dbt/notes.md` — models, incremental, tests, CI/CD, Jinja |
+| **Snowflake** | `snowflake/notes.md` — architecture, micro-partitions, cost, streams/tasks |
+| **AWS Data Engineering** | `aws-data-engineering/notes.md` — Glue, EMR, Redshift, Kinesis, IAM, cost |
+| **Data Governance** | `data-governance/notes.md` — catalog, lineage, quality, contracts, observability |
+| **Python** | `python/notes.md` — packaging, pyproject.toml, wheels, uv, Docker |
+| **System Design** | `system-design/notes.md` — CDC pipelines, lakehouse, real-time metrics |
+| **EMR** | `emr/notes.md` — Hadoop/Tez sizing, reducer tuning |
+| **Foundations** | `foundations/networking.md` — distributed systems fundamentals |
+| **Interview Prep** | `interview-prep/` — roadmap, 8-week sprint plan, quiz app, progress tracking |
+
+## Changelog & Contributing
+- See `CHANGELOG.md` for what changed recently
+- See `CONTRIBUTING.md` for how to add notes and curation guidelines
