@@ -9,7 +9,7 @@ This is the navigation hub for the repo.
 4. `apache-flink/`
 5. `apache-spark-pyspark/`
 6. `apache-iceberg/`
-7. AWS analytics stack: `aws-glue/`, `athena/`, `redshift/`, `emr/`
+7. AWS analytics stack: `emr/`
 
 ## General Resource Hubs
 - [DataEngineering.wiki – Learning Resources](https://dataengineering.wiki/Learning+Resources)
@@ -17,12 +17,12 @@ This is the navigation hub for the repo.
 ## Topics
 - Foundations
   - `foundations/networking.md`
-  - `foundations/progress.md`
+  - `interview-prep/foundations-progress.md`
 - System Design
   - `system-design/notes.md`
   - `system-design/caching.md`
 - Flink
-  - `apache-flink/README.md`
+  - `apache-flink/notes.md`
   - `apache-flink/kafka-to-flink-local-setup.md`
   - `apache-flink/practice-roadmap.md`
 - Kafka
@@ -42,11 +42,14 @@ This is the navigation hub for the repo.
 - `interview-prep/progress-checklist.md` — granular subtopic checklist to track readiness per topic area
 
 ## Progress Tracking
-- Foundations progress: `foundations/progress.md`
+- Foundations progress: `interview-prep/foundations-progress.md`
 - Interview prep progress: `interview-prep/progress-checklist.md`
+
+## Interactive Site
+Run `mkdocs serve` (from repo root) for a browsable site with search, dark mode, and a built-in quiz app with flashcards and XP tracking (`interview-prep/quiz-app/index.html`).
 
 If you add new notes/resources, please also:
 - link them from this `INDEX.md` when it helps discoverability
 - record the addition in `CHANGELOG.md`
 
-- Spark / PySpark (practice track): 
+

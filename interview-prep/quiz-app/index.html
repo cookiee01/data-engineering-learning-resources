@@ -1,0 +1,807 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DE Interview Prep — Quiz & Flashcards</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+<style>
+:root {
+  --bg: #f8f9fc;
+  --surface: #ffffff;
+  --surface2: #f1f3f8;
+  --text: #1a1d23;
+  --text2: #5a6072;
+  --border: #e2e6ee;
+  --primary: #4f46e5;
+  --primary-hover: #4338ca;
+  --green: #10b981;
+  --red: #ef4444;
+  --gold: #f59e0b;
+  --radius: 12px;
+  --shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+  --shadow-lg: 0 10px 25px rgba(0,0,0,0.08);
+}
+.dark {
+  --bg: #0f1117;
+  --surface: #1a1d28;
+  --surface2: #242736;
+  --text: #edf2f7;
+  --text2: #9ca3af;
+  --border: #2d3148;
+  --shadow: 0 1px 3px rgba(0,0,0,0.3);
+  --shadow-lg: 0 10px 25px rgba(0,0,0,0.5);
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  font-family: 'Inter', -apple-system, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+}
+.app {
+  display: flex;
+  min-height: 100vh;
+}
+/* Sidebar */
+.sidebar {
+  width: 240px;
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  padding: 24px 16px;
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+}
+.sidebar .brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 32px;
+}
+.sidebar .brand .logo {
+  width: 36px; height: 36px;
+  background: var(--primary);
+  border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  color: #fff; font-weight: 700; font-size: 18px;
+}
+.sidebar .brand h1 { font-size: 16px; font-weight: 700; }
+.sidebar .brand span { font-size: 11px; color: var(--text2); }
+.nav-menu { display: flex; flex-direction: column; gap: 4px; flex: 1; }
+.nav-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 12px; border-radius: 8px;
+  background: none; border: none; color: var(--text2);
+  font-size: 14px; cursor: pointer; transition: all 0.15s;
+  font-family: inherit;
+}
+.nav-item:hover { background: var(--surface2); color: var(--text); }
+.nav-item.active { background: var(--primary); color: #fff; }
+.nav-item i { width: 18px; text-align: center; font-size: 14px; }
+/* Main */
+.main {
+  flex: 1;
+  padding: 32px 40px;
+  overflow-y: auto;
+  max-width: 960px;
+}
+.top-bar {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 32px;
+}
+.top-bar h2 { font-size: 22px; font-weight: 700; }
+.top-bar p { color: var(--text2); font-size: 14px; margin-top: 4px; }
+.top-bar-actions { display: flex; gap: 8px; align-items: center; }
+.stats-row {
+  display: flex; gap: 16px;
+}
+.stat-badge {
+  display: flex; align-items: center; gap: 6px;
+  padding: 6px 14px; border-radius: 20px;
+  background: var(--surface); border: 1px solid var(--border);
+  font-size: 13px; font-weight: 600;
+}
+.stat-badge i { font-size: 14px; }
+.text-orange { color: var(--gold); }
+.text-gold { color: var(--gold); }
+.text-green { color: var(--green); }
+/* Tab content */
+.tab-content { display: none; }
+.tab-content.active { display: block; }
+/* Dashboard */
+.dashboard-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 24px; }
+.hero-card {
+  grid-column: 1 / -1;
+  background: linear-gradient(135deg, var(--primary), #7c3aed);
+  border-radius: var(--radius);
+  padding: 28px 32px;
+  color: #fff;
+  display: flex; justify-content: space-between; align-items: center;
+}
+.hero-card h3 { font-size: 20px; font-weight: 700; }
+.hero-card p { font-size: 14px; opacity: 0.9; margin: 8px 0 16px; max-width: 400px; }
+.btn {
+  padding: 8px 20px; border-radius: 8px; border: none;
+  font-size: 14px; font-weight: 600; cursor: pointer;
+  font-family: inherit; transition: all 0.15s;
+  display: inline-flex; align-items: center; gap: 6px;
+}
+.btn-primary { background: #fff; color: var(--primary); }
+.btn-primary:hover { background: #f0f0ff; }
+.btn-secondary { background: var(--surface2); color: var(--text); border: 1px solid var(--border); }
+.btn-secondary:hover { background: var(--border); }
+.btn-danger { background: var(--red); color: #fff; }
+.btn-danger:hover { opacity: 0.9; }
+.btn-small { padding: 4px 12px; font-size: 12px; }
+.progress-section h4 { font-size: 15px; font-weight: 600; margin-bottom: 12px; }
+.progress-cards { display: flex; flex-direction: column; gap: 10px; }
+.prog-card { padding: 14px 16px; background: var(--surface); border-radius: 8px; border: 1px solid var(--border); }
+.prog-info { display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 6px; }
+.prog-info span:first-child { font-weight: 500; }
+.progress-bar-container { height: 6px; background: var(--surface2); border-radius: 3px; overflow: hidden; }
+.progress-bar { height: 100%; border-radius: 3px; transition: width 0.3s; }
+.progress-bar.bg-primary { background: var(--primary); }
+.progress-bar.bg-green { background: var(--green); }
+.progress-bar.bg-gold { background: var(--gold); }
+/* Quick stats */
+.quick-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+.stat-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px;
+  text-align: center;
+}
+.stat-card .num { font-size: 28px; font-weight: 800; display: block; }
+.stat-card .lbl { font-size: 12px; color: var(--text2); margin-top: 4px; }
+/* Flashcards */
+.flashcard-container {
+  display: flex; align-items: center; justify-content: center; gap: 20px;
+  margin: 20px 0;
+}
+.flashcard {
+  width: 100%; max-width: 480px; height: 280px;
+  perspective: 1000px;
+  cursor: pointer;
+}
+.flashcard-inner {
+  position: relative; width: 100%; height: 100%;
+  transition: transform 0.5s;
+  transform-style: preserve-3d;
+}
+.flashcard.flipped .flashcard-inner { transform: rotateY(180deg); }
+.flashcard-front, .flashcard-back {
+  position: absolute; width: 100%; height: 100%;
+  backface-visibility: hidden;
+  border-radius: var(--radius);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  padding: 32px;
+  box-shadow: var(--shadow-lg);
+}
+.flashcard-back { transform: rotateY(180deg); }
+.flashcard-category {
+  position: absolute; top: 16px; left: 16px;
+  padding: 3px 10px; border-radius: 12px;
+  background: var(--primary); color: #fff;
+  font-size: 11px; font-weight: 600;
+}
+.flashcard-question { font-size: 18px; font-weight: 600; text-align: center; }
+.flashcard-answer { font-size: 16px; text-align: center; line-height: 1.6; color: var(--text); }
+.flashcard-tip { position: absolute; bottom: 16px; font-size: 12px; color: var(--text2); }
+.card-nav { display: flex; align-items: center; gap: 16px; justify-content: center; margin-top: 12px; }
+.card-nav button {
+  width: 40px; height: 40px; border-radius: 50%;
+  border: 1px solid var(--border); background: var(--surface);
+  color: var(--text); cursor: pointer; display: flex;
+  align-items: center; justify-content: center;
+  font-family: inherit; transition: all 0.15s;
+}
+.card-nav button:hover { background: var(--surface2); }
+.card-nav .card-count { font-size: 13px; color: var(--text2); }
+.card-progress { text-align: center; margin-bottom: 12px; }
+.card-progress .prog {
+  display: inline-block; width: 10px; height: 10px;
+  border-radius: 50%; margin: 0 3px;
+  border: 1px solid var(--border);
+}
+.card-progress .prog.completed { background: var(--green); border-color: var(--green); }
+.card-progress .prog.active { background: var(--primary); border-color: var(--primary); }
+/* Quiz */
+.quiz-setup { text-align: center; padding: 40px 20px; }
+.quiz-setup h3 { font-size: 20px; margin-bottom: 8px; }
+.quiz-setup p { color: var(--text2); margin-bottom: 24px; }
+.mode-buttons { display: flex; gap: 8px; justify-content: center; margin-bottom: 24px; flex-wrap: wrap; }
+.mode-btn { padding: 8px 16px; border-radius: 8px; border: 1px solid var(--border);
+  background: var(--surface); color: var(--text2); cursor: pointer; font-family: inherit;
+  font-size: 13px; font-weight: 500; transition: all 0.15s;
+}
+.mode-btn.active { background: var(--primary); color: #fff; border-color: var(--primary); }
+.quiz-header {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 12px;
+}
+.quiz-header span { font-size: 14px; color: var(--text2); font-weight: 500; }
+.quiz-timer { font-size: 14px; font-weight: 600; color: var(--primary); }
+.quiz-bar-container { height: 4px; background: var(--surface2); border-radius: 2px; margin-bottom: 24px; overflow: hidden; }
+.quiz-bar { height: 100%; background: var(--primary); border-radius: 2px; transition: width 0.3s; }
+.quiz-question { font-size: 18px; font-weight: 600; margin-bottom: 24px; }
+.quiz-options { display: flex; flex-direction: column; gap: 10px; }
+.quiz-option {
+  padding: 14px 18px; border-radius: var(--radius);
+  border: 1px solid var(--border); background: var(--surface);
+  font-size: 14px; cursor: pointer; transition: all 0.15s;
+  text-align: left; font-family: inherit; color: var(--text);
+}
+.quiz-option:hover { border-color: var(--primary); background: var(--surface2); }
+.quiz-option.correct { border-color: var(--green); background: rgba(16,185,129,0.1); color: var(--green); }
+.quiz-option.wrong { border-color: var(--red); background: rgba(239,68,68,0.1); color: var(--red); }
+.quiz-option:disabled { cursor: default; opacity: 0.7; }
+.quiz-feedback {
+  margin-top: 16px; padding: 16px 20px; border-radius: var(--radius);
+  display: none;
+}
+.quiz-feedback.correct { display: block; background: rgba(16,185,129,0.1); border: 1px solid rgba(16,185,129,0.3); }
+.quiz-feedback.wrong { display: block; background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.3); }
+.quiz-feedback h5 { font-size: 15px; margin-bottom: 4px; }
+.quiz-feedback p { font-size: 13px; color: var(--text2); }
+.quiz-next { margin-top: 16px; }
+/* Results */
+.results { text-align: center; padding: 40px 20px; }
+.results .trophy { font-size: 64px; color: var(--gold); margin-bottom: 16px; }
+.results h3 { font-size: 24px; margin-bottom: 8px; }
+.results .score { font-size: 48px; font-weight: 800; color: var(--primary); margin: 16px 0; }
+.results .sub { color: var(--text2); margin-bottom: 24px; }
+.results-actions { display: flex; gap: 12px; justify-content: center; }
+/* Filters */
+.filters { display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap; }
+.filter-btn {
+  padding: 6px 14px; border-radius: 16px;
+  border: 1px solid var(--border); background: var(--surface);
+  color: var(--text2); cursor: pointer; font-family: inherit;
+  font-size: 13px; transition: all 0.15s;
+}
+.filter-btn.active { background: var(--primary); color: #fff; border-color: var(--primary); }
+/* Theme toggle */
+.theme-toggle {
+  background: none; border: none; color: var(--text2);
+  cursor: pointer; font-size: 20px; padding: 4px;
+}
+/* Toast */
+.toast {
+  position: fixed; bottom: 24px; right: 24px;
+  padding: 12px 20px; border-radius: 8px;
+  background: var(--surface); border: 1px solid var(--border);
+  box-shadow: var(--shadow-lg);
+  font-size: 14px; font-weight: 500;
+  display: flex; align-items: center; gap: 8px;
+  transform: translateY(100px);
+  opacity: 0;
+  transition: all 0.3s;
+  z-index: 1000;
+}
+.toast.show { transform: translateY(0); opacity: 1; }
+/* Responsive */
+@media (max-width: 768px) {
+  .app { flex-direction: column; }
+  .sidebar { width: 100%; padding: 16px; flex-direction: row; flex-wrap: wrap; border-right: none; border-bottom: 1px solid var(--border); }
+  .sidebar .brand { margin-bottom: 0; }
+  .nav-menu { flex-direction: row; overflow-x: auto; }
+  .nav-item { white-space: nowrap; font-size: 12px; padding: 6px 10px; }
+  .main { padding: 20px; }
+  .dashboard-grid { grid-template-columns: 1fr; }
+  .quick-stats { grid-template-columns: 1fr; }
+  .flashcard { height: 220px; }
+}
+</style>
+</head>
+<body>
+
+<div class="app" id="app">
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="logo">DE</div>
+      <div>
+        <h1>DE Prep</h1>
+        <span>Interview Ready</span>
+      </div>
+    </div>
+    <nav class="nav-menu">
+      <button class="nav-item active" data-tab="dashboard"><i class="fa-solid fa-chart-simple"></i> Dashboard</button>
+      <button class="nav-item" data-tab="flashcards"><i class="fa-solid fa-layer-group"></i> Flashcards</button>
+      <button class="nav-item" data-tab="quiz"><i class="fa-solid fa-graduation-cap"></i> Quiz</button>
+    </nav>
+    <div style="padding-top:16px;border-top:1px solid var(--border);margin-top:auto;display:flex;justify-content:space-between;align-items:center">
+      <span style="font-size:12px;color:var(--text2)">v1.0</span>
+      <button class="theme-toggle" id="themeToggle" title="Toggle dark mode"><i class="fa-solid fa-moon"></i></button>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="top-bar">
+      <div>
+        <h2 id="pageTitle">Dashboard</h2>
+        <p id="pageSub">Track your interview preparation progress</p>
+      </div>
+      <div class="top-bar-actions">
+        <div class="stat-badge"><i class="fa-solid fa-bolt text-gold"></i> <span id="xpDisplay">0</span> XP</div>
+        <div class="stat-badge"><i class="fa-solid fa-check-circle text-green"></i> <span id="masteredDisplay">0</span> Mastered</div>
+      </div>
+    </div>
+
+    <!-- Dashboard -->
+    <section id="tab-dashboard" class="tab-content active">
+      <div class="dashboard-grid">
+        <div class="hero-card">
+          <div>
+            <h3>Data Engineering Interview Prep</h3>
+            <p>Master SQL, PySpark, Kafka, Flink, Iceberg, system design, and DSA for your next interview. Use flashcards for active recall and quizzes to test your knowledge.</p>
+            <button class="btn btn-primary" onclick="switchTab('flashcards')">Start Flashcards <i class="fa-solid fa-arrow-right"></i></button>
+          </div>
+        </div>
+        <div class="progress-section">
+          <h4>Topic Progress</h4>
+          <div class="progress-cards" id="topicProgress"></div>
+        </div>
+      </div>
+      <div class="quick-stats">
+        <div class="stat-card"><span class="num" id="totalCardsStat">0</span><span class="lbl">Total Cards</span></div>
+        <div class="stat-card"><span class="num" id="quizScoreStat">0</span><span class="lbl">Quizzes Taken</span></div>
+        <div class="stat-card"><span class="num" id="streakStat">0</span><span class="lbl">Day Streak</span></div>
+      </div>
+    </section>
+
+    <!-- Flashcards -->
+    <section id="tab-flashcards" class="tab-content">
+      <div class="filters" id="flashcardFilters"></div>
+      <div class="card-progress" id="cardProgress"></div>
+      <div class="flashcard-container">
+        <button class="btn btn-secondary" onclick="prevCard()"><i class="fa-solid fa-chevron-left"></i></button>
+        <div class="flashcard" id="flashcard" onclick="flipCard()">
+          <div class="flashcard-inner">
+            <div class="flashcard-front">
+              <span class="flashcard-category" id="cardCategory">Topic</span>
+              <div class="flashcard-question" id="cardQuestion">Question</div>
+              <div class="flashcard-tip">Click to reveal answer</div>
+            </div>
+            <div class="flashcard-back">
+              <div class="flashcard-answer" id="cardAnswer">Answer</div>
+              <div class="flashcard-tip">Click to flip back</div>
+            </div>
+          </div>
+        </div>
+        <button class="btn btn-secondary" onclick="nextCard()"><i class="fa-solid fa-chevron-right"></i></button>
+      </div>
+      <div class="card-nav">
+        <button onclick="markMastered()" title="Mark mastered"><i class="fa-solid fa-check-circle" style="color:var(--green)"></i></button>
+        <span class="card-count" id="cardCount">1 / 1</span>
+        <button onclick="shuffleCards()" title="Shuffle"><i class="fa-solid fa-shuffle"></i></button>
+      </div>
+    </section>
+
+    <!-- Quiz -->
+    <section id="tab-quiz" class="tab-content">
+      <div id="quizSetup" class="quiz-setup">
+        <i class="fa-solid fa-circle-question" style="font-size:48px;color:var(--primary);margin-bottom:16px"></i>
+        <h3>Ready to test your knowledge?</h3>
+        <p>Answer multiple-choice questions across all topics. Each correct answer earns 10 XP.</p>
+        <div class="mode-buttons">
+          <button class="mode-btn active" data-mode="all" onclick="setQuizMode('all', this)">All Topics</button>
+          <button class="mode-btn" data-mode="sql" onclick="setQuizMode('sql', this)">SQL</button>
+          <button class="mode-btn" data-mode="spark" onclick="setQuizMode('spark', this)">PySpark</button>
+          <button class="mode-btn" data-mode="kafka" onclick="setQuizMode('kafka', this)">Kafka</button>
+          <button class="mode-btn" data-mode="flink" onclick="setQuizMode('flink', this)">Flink</button>
+          <button class="mode-btn" data-mode="iceberg" onclick="setQuizMode('iceberg', this)">Iceberg</button>
+          <button class="mode-btn" data-mode="dsa" onclick="setQuizMode('dsa', this)">DSA</button>
+          <button class="mode-btn" data-mode="system-design" onclick="setQuizMode('system-design', this)">System Design</button>
+        </div>
+        <button class="btn btn-primary" onclick="startQuiz()" style="padding:12px 32px;font-size:16px">Start Quiz <i class="fa-solid fa-play"></i></button>
+      </div>
+      <div id="quizGame" style="display:none">
+        <div class="quiz-header">
+          <span id="quizProgress">Question 1 of 10</span>
+          <span class="quiz-timer" id="quizTimer">20s</span>
+        </div>
+        <div class="quiz-bar-container"><div class="quiz-bar" id="quizBar" style="width:10%"></div></div>
+        <div class="quiz-question" id="quizQuestion">Loading...</div>
+        <div class="quiz-options" id="quizOptions"></div>
+        <div class="quiz-feedback" id="quizFeedback"></div>
+        <button class="btn btn-primary quiz-next" id="quizNextBtn" style="display:none" onclick="nextQuestion()">Next <i class="fa-solid fa-arrow-right"></i></button>
+      </div>
+      <div id="quizResults" style="display:none">
+        <div class="results">
+          <div class="trophy"><i class="fa-solid fa-trophy"></i></div>
+          <h3>Quiz Complete!</h3>
+          <div class="score" id="resultScore">0/10</div>
+          <div class="sub" id="resultMsg">Great job!</div>
+          <div class="results-actions">
+            <button class="btn btn-primary" onclick="startQuiz()"><i class="fa-solid fa-rotate-left"></i> Play Again</button>
+            <button class="btn btn-secondary" onclick="switchTab('dashboard')">Dashboard</button>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ===== DATA =====
+const QUESTIONS = [
+  // SQL
+  { id: 1, topic: 'sql', q: 'What does `ROW_NUMBER()` assign when two rows have the same ORDER BY value?', a: 'Arbitrary unique ranks with no ties — same ORDER BY values get different row numbers', options: ['Same rank for ties', 'Arbitrary unique ranks with no ties', 'NULL for duplicates', 'Skips the next number'] },
+  { id: 2, topic: 'sql', q: 'Which join type returns all rows from the left table and matching rows from the right, with NULLs where no match exists?', a: 'LEFT JOIN', options: ['INNER JOIN', 'LEFT JOIN', 'RIGHT JOIN', 'FULL OUTER JOIN'] },
+  { id: 3, topic: 'sql', q: 'What does a recursive CTE require to terminate?', a: 'A base case (anchor) and a recursive term with a WHERE condition that eventually produces zero rows', options: ['A MAXRECURSION hint', 'A termination check in the WHERE clause', 'A base case and a recursive term that eventually produces zero rows', 'It cannot terminate by design'] },
+  { id: 4, topic: 'sql', q: 'Which fact table type is best for tracking inventory levels at the end of each day?', a: 'Periodic snapshot fact table', options: ['Transactional fact table', 'Periodic snapshot fact table', 'Accumulating snapshot fact table', 'Factless fact table'] },
+  { id: 5, topic: 'sql', q: 'In SCD Type 2, how do you track the current active record?', a: 'A boolean column (is_current) or an end_date set to NULL / 9999-12-31', options: ['Delete old versions', 'Overwrite the existing row', 'A boolean column (is_current) or null end_date', 'Store only the latest value in a separate table'] },
+  // PySpark
+  { id: 6, topic: 'spark', q: 'What triggers a shuffle in Spark?', a: 'Wide transformations like groupBy, join, repartition, distinct, orderBy', options: ['filter() and select()', 'groupBy, join, repartition, distinct, orderBy', 'cache() and persist()', 'show() and collect()'] },
+  { id: 7, topic: 'spark', q: 'What does AQE (Adaptive Query Execution) do at runtime?', a: 'Coalesces shuffle partitions, switches join strategies, and handles skew based on observed partition sizes', options: ['Re-orders filter predicates', 'Coalesces shuffle partitions, switches join strategies, handles skew', 'Converts all joins to broadcast joins', 'Optimizes storage format selection'] },
+  { id: 8, topic: 'spark', q: 'What is the difference between repartition(n) and coalesce(n)?', a: 'repartition shuffles all data (full shuffle); coalesce merges existing partitions without a full shuffle (only reduces)', options: ['repartition is always faster', 'repartition shuffles all data; coalesce merges without a full shuffle (only reduces)', 'coalesce shuffles all data; repartition does not', 'They are identical'] },
+  { id: 9, topic: 'spark', q: 'What happens when executor memory is exhausted during a shuffle?', a: 'Spark spills data to disk. Execution memory can evict storage memory, but not vice versa.', options: ['The job fails immediately', 'Spark spills data to disk; execution can evict storage', 'Data is dropped silently', 'Spark requests more memory from YARN'] },
+  { id: 10, topic: 'spark', q: 'Why might Kryo serialization NOT help a DataFrame-heavy pipeline?', a: 'DataFrames use Tungsten/UnsafeRow binary format internally, avoiding JVM object serialization', options: ['Kryo is not compatible with DataFrames', 'DataFrames use Tungsten/UnsafeRow binary format internally', 'Kryo only works with RDDs', 'PySpark ignores the serializer setting'] },
+  // Kafka
+  { id: 11, topic: 'kafka', q: 'What happens during a consumer group rebalance?', a: 'Partitions are reassigned among consumers. All consumers pause processing until the new assignment is complete.', options: ['New partitions are created', 'Partitions are reassigned; consumers pause until complete', 'Consumers continue processing unaffected', 'Brokers elect a new controller'] },
+  { id: 12, topic: 'kafka', q: 'What is the purpose of `min.insync.replicas`?', a: 'Minimum number of in-sync replicas that must acknowledge a write for the producer\'s acks=all to succeed', options: ['Minimum replicas for topic creation', 'Minimum ISRs that must acknowledge acks=all writes', 'Minimum number of consumer group members', 'Minimum retention time in milliseconds'] },
+  { id: 13, topic: 'kafka', q: 'How do you achieve exactly-once semantics in Kafka?', a: 'Enable idempotent producer (enable.idempotence=true), set acks=all, and use a single transactional producer per session', options: ['Set acks=0', 'Idempotent producer + acks=all + transactional producer per session', 'Use at-least-once and deduplicate downstream', 'Set min.insync.replicas = replication factor'] },
+  // Flink
+  { id: 14, topic: 'flink', q: 'What problem do watermarks solve in Flink?', a: 'Handling out-of-order events in event-time processing by defining how long to wait for late events', options: ['Replacing wall-clock time', 'Handling out-of-order events in event-time processing', 'Speeding up checkpointing', 'Compressing stream data'] },
+  { id: 15, topic: 'flink', q: 'What state backends does Flink support?', a: 'HashMapStateBackend (in-memory) and RocksDBStateBackend (disk-backed, suitable for large state)', options: ['Memory and FileSystem', 'HashMap and RocksDB', 'Redis and MySQL', 'Kafka and S3'] },
+  // Iceberg
+  { id: 16, topic: 'iceberg', q: 'What is hidden partitioning in Iceberg?', a: 'Partitioning is automatic based on transform functions (month, day, hour, bucket, truncate); users don\'t manage partition directories', options: ['Partitions that are not visible to users', 'Automatic partitioning via transform functions; no directory management', 'Encrypted partition columns', 'Partitions stored in a separate catalog'] },
+  { id: 17, topic: 'iceberg', q: 'What is the difference between Copy-on-Write and Merge-on-Read in Iceberg?', a: 'CoW rewrites entire data files on every write (fast reads, slow writes); MoR writes delta files and compacts later (fast writes, slower reads)', options: ['CoW is faster for all workloads', 'CoW rewrites files on write (fast reads); MoR writes deltas (fast writes)', 'MoR never compacts', 'They are identical strategies'] },
+  // DSA
+  { id: 18, topic: 'dsa', q: 'What data structure combination implements an LRU cache?', a: 'HashMap for O(1) lookups + Doubly Linked List for O(1) eviction ordering', options: ['HashMap + Array', 'HashMap + Doubly Linked List', 'TreeMap + Queue', 'HashSet + Stack'] },
+  { id: 19, topic: 'dsa', q: 'What is the time complexity of searching in a sorted array vs a binary search tree?', a: 'Sorted array: O(log n) via binary search; BST: O(log n) average, O(n) worst-case if unbalanced', options: ['Both O(log n) always', 'Array O(log n); BST O(log n) avg, O(n) worst', 'Array O(n); BST O(log n)', 'Both O(n)'] },
+  { id: 20, topic: 'dsa', q: 'Which algorithm finds the maximum subarray sum in O(n) time?', a: 'Kadane\'s algorithm', options: ['Merge sort', 'Binary search', "Kadane's algorithm", 'Quick select'] },
+  // System Design
+  { id: 21, topic: 'system-design', q: 'In a real-time streaming pipeline, what guarantees exactly-once semantics end-to-end?', a: 'Replayable source + checkpointed state + idempotent or transactional sink', options: ['Exactly-once from Kafka alone', 'Replayable source + checkpointed state + idempotent/transactional sink', 'Idempotent producer only', 'ACKs from the consumer'] },
+  { id: 22, topic: 'system-design', q: 'What is the Lambda architecture?', a: 'Batch layer (accurate, high-latency) + Speed layer (approximate, low-latency) + Serving layer for queries', options: ['Stream-only processing', 'Batch + Speed + Serving layers', 'Micro-batch with exactly-once', 'A deployment pattern for Spark'] },
+  { id: 23, topic: 'system-design', q: 'What is the Kappa architecture?', a: 'Stream-only architecture — all data is processed as a stream, batch is a replayed stream', options: ['Batch-only architecture', 'Stream-only; batch is a replayed stream', 'Hybrid of batch and streaming', 'A specific Kafka deployment pattern'] },
+  // Behavioral
+  { id: 24, topic: 'behavioral', q: 'What does STAR stand for in behavioral interviews?', a: 'Situation, Task, Action, Result', options: ['Situation, Task, Action, Result', 'Scenario, Task, Approach, Resolution', 'Situation, Thinking, Action, Review', 'Story, Task, Answer, Result'] },
+  { id: 25, topic: 'behavioral', q: 'How should you answer "Tell me about a time a pipeline broke"?', a: 'Use STAR: describe the situation, your specific task, the actions you took to detect/mitigate/fix, and the measurable result', options: ['Explain your general debugging process', 'Use STAR with the pipeline break-fix story arc', 'Blame the previous engineer', 'Say you always write perfect pipelines'] },
+];
+
+// ===== STATE =====
+let state = {
+  xp: parseInt(localStorage.getItem('de_xp') || '0'),
+  mastered: JSON.parse(localStorage.getItem('de_mastered') || '[]'),
+  quizzes: parseInt(localStorage.getItem('de_quizzes') || '0'),
+  streak: parseInt(localStorage.getItem('de_streak') || '0'),
+  lastActive: localStorage.getItem('de_last_active') || '',
+  dark: localStorage.getItem('de_dark') === 'true',
+  quizMode: 'all',
+  quizIndex: 0,
+  quizScore: 0,
+  quizQuestions: [],
+  cardIndex: 0,
+  filteredCards: [],
+  timer: null,
+};
+
+// ===== INIT =====
+function init() {
+  updateStreak();
+  applyTheme();
+  buildFlashcardFilters();
+  filterCards('all');
+  renderDashboard();
+  renderCardProgress();
+  updateCard();
+  updateStats();
+
+  // Nav
+  document.querySelectorAll('.nav-item').forEach(el => {
+    el.addEventListener('click', () => switchTab(el.dataset.tab));
+  });
+  // Theme
+  document.getElementById('themeToggle').addEventListener('click', toggleTheme);
+}
+
+// ===== STREAK =====
+function updateStreak() {
+  const today = new Date().toDateString();
+  if (state.lastActive && state.lastActive !== today) {
+    const yesterday = new Date(Date.now() - 86400000).toDateString();
+    if (state.lastActive === yesterday) {
+      state.streak++;
+    } else {
+      state.streak = 0;
+    }
+  }
+  if (state.lastActive !== today) {
+    if (!state.lastActive) state.streak = 1;
+    state.lastActive = today;
+    save();
+  }
+}
+
+// ===== THEME =====
+function applyTheme() {
+  document.getElementById('app').classList.toggle('dark', state.dark);
+  document.getElementById('themeToggle').innerHTML = state.dark ? '<i class="fa-solid fa-sun"></i>' : '<i class="fa-solid fa-moon"></i>';
+}
+function toggleTheme() { state.dark = !state.dark; applyTheme(); localStorage.setItem('de_dark', state.dark); }
+
+// ===== SAVE =====
+function save() {
+  localStorage.setItem('de_xp', state.xp);
+  localStorage.setItem('de_mastered', JSON.stringify(state.mastered));
+  localStorage.setItem('de_quizzes', state.quizzes);
+  localStorage.setItem('de_streak', state.streak);
+  localStorage.setItem('de_last_active', state.lastActive);
+}
+
+// ===== DASHBOARD =====
+function renderDashboard() {
+  const topics = {};
+  QUESTIONS.forEach(q => {
+    if (!topics[q.topic]) topics[q.topic] = { total: 0, mastered: 0 };
+    topics[q.topic].total++;
+    if (state.mastered.includes(q.id)) topics[q.topic].mastered++;
+  });
+  const container = document.getElementById('topicProgress');
+  container.innerHTML = Object.entries(topics).map(([topic, data]) => `
+    <div class="prog-card">
+      <div class="prog-info">
+        <span>${topicLabel(topic)}</span>
+        <span>${data.mastered}/${data.total}</span>
+      </div>
+      <div class="progress-bar-container">
+        <div class="progress-bar bg-primary" style="width:${data.total ? (data.mastered/data.total*100) : 0}%"></div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function topicLabel(t) {
+  const labels = { sql:'SQL', spark:'PySpark', kafka:'Kafka', flink:'Flink', iceberg:'Iceberg', dsa:'DSA', 'system-design':'System Design', behavioral:'Behavioral' };
+  return labels[t] || t;
+}
+
+function updateStats() {
+  document.getElementById('xpDisplay').textContent = state.xp;
+  document.getElementById('masteredDisplay').textContent = state.mastered.length;
+  document.getElementById('totalCardsStat').textContent = QUESTIONS.length;
+  document.getElementById('quizScoreStat').textContent = state.quizzes;
+  document.getElementById('streakStat').textContent = state.streak + ' days';
+}
+
+// ===== TABS =====
+function switchTab(tab) {
+  document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+  document.getElementById('tab-' + tab).classList.add('active');
+  document.querySelector(`.nav-item[data-tab="${tab}"]`).classList.add('active');
+  const titles = { dashboard:'Dashboard', flashcards:'Flashcards', quiz:'Quiz' };
+  const subs = { dashboard:'Track your interview preparation progress', flashcards:'Active recall — flip cards to test your knowledge', quiz:'Test yourself with multiple-choice questions' };
+  document.getElementById('pageTitle').textContent = titles[tab];
+  document.getElementById('pageSub').textContent = subs[tab];
+  renderDashboard();
+  updateStats();
+}
+
+// ===== FLASHCARDS =====
+function buildFlashcardFilters() {
+  const topics = [...new Set(QUESTIONS.map(q => q.topic))];
+  const container = document.getElementById('flashcardFilters');
+  container.innerHTML = '<button class="filter-btn active" data-cat="all" onclick="filterCards(\'all\', this)">All</button>' +
+    topics.map(t => `<button class="filter-btn" data-cat="${t}" onclick="filterCards('${t}', this)">${topicLabel(t)}</button>`).join('');
+}
+
+function filterCards(topic, btn) {
+  document.querySelectorAll('#flashcardFilters .filter-btn').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  else document.querySelector('#flashcardFilters .filter-btn[data-cat="all"]').classList.add('active');
+  state.filteredCards = topic === 'all' ? [...QUESTIONS] : QUESTIONS.filter(q => q.topic === topic);
+  state.cardIndex = 0;
+  renderCardProgress();
+  updateCard();
+}
+
+function renderCardProgress() {
+  const container = document.getElementById('cardProgress');
+  container.innerHTML = state.filteredCards.map((q, i) =>
+    `<span class="prog ${state.mastered.includes(q.id) ? 'completed' : ''} ${i === state.cardIndex ? 'active' : ''}"></span>`
+  ).join('');
+}
+
+function updateCard() {
+  if (!state.filteredCards.length) {
+    document.getElementById('cardCategory').textContent = 'No cards';
+    document.getElementById('cardQuestion').textContent = 'No flashcards match this filter.';
+    document.getElementById('cardAnswer').textContent = 'Try a different topic.';
+    document.getElementById('cardCount').textContent = '0 / 0';
+    return;
+  }
+  const card = state.filteredCards[state.cardIndex];
+  const isFlipped = document.getElementById('flashcard').classList.contains('flipped');
+  document.getElementById('flashcard').classList.remove('flipped');
+  document.getElementById('cardCategory').textContent = topicLabel(card.topic);
+  document.getElementById('cardQuestion').textContent = card.q;
+  document.getElementById('cardAnswer').textContent = card.a;
+  document.getElementById('cardCount').textContent = `${state.cardIndex + 1} / ${state.filteredCards.length}`;
+  renderCardProgress();
+}
+
+function flipCard() {
+  document.getElementById('flashcard').classList.toggle('flipped');
+}
+
+function nextCard() {
+  if (!state.filteredCards.length) return;
+  state.cardIndex = (state.cardIndex + 1) % state.filteredCards.length;
+  updateCard();
+}
+
+function prevCard() {
+  if (!state.filteredCards.length) return;
+  state.cardIndex = (state.cardIndex - 1 + state.filteredCards.length) % state.filteredCards.length;
+  updateCard();
+}
+
+function shuffleCards() {
+  for (let i = state.filteredCards.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [state.filteredCards[i], state.filteredCards[j]] = [state.filteredCards[j], state.filteredCards[i]];
+  }
+  state.cardIndex = 0;
+  updateCard();
+}
+
+function markMastered() {
+  if (!state.filteredCards.length) return;
+  const card = state.filteredCards[state.cardIndex];
+  if (!state.mastered.includes(card.id)) {
+    state.mastered.push(card.id);
+    state.xp += 5;
+    save();
+    updateStats();
+    showToast('+5 XP — Card mastered!');
+    renderCardProgress();
+  } else {
+    showToast('Already mastered');
+  }
+}
+
+// ===== QUIZ =====
+function setQuizMode(mode, btn) {
+  document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  state.quizMode = mode;
+}
+
+function startQuiz() {
+  let pool = state.quizMode === 'all' ? [...QUESTIONS] : QUESTIONS.filter(q => q.topic === state.quizMode);
+  if (pool.length < 5) pool = [...QUESTIONS]; // fallback
+  // Shuffle and pick 10
+  for (let i = pool.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [pool[i], pool[j]] = [pool[j], pool[i]];
+  }
+  state.quizQuestions = pool.slice(0, 10);
+  state.quizIndex = 0;
+  state.quizScore = 0;
+  document.getElementById('quizSetup').style.display = 'none';
+  document.getElementById('quizResults').style.display = 'none';
+  document.getElementById('quizGame').style.display = 'block';
+  renderQuestion();
+  startTimer();
+}
+
+function renderQuestion() {
+  const q = state.quizQuestions[state.quizIndex];
+  document.getElementById('quizProgress').textContent = `Question ${state.quizIndex + 1} of ${state.quizQuestions.length}`;
+  document.getElementById('quizBar').style.width = `${((state.quizIndex + 1) / state.quizQuestions.length) * 100}%`;
+  document.getElementById('quizQuestion').textContent = q.q;
+  const container = document.getElementById('quizOptions');
+  container.innerHTML = q.options.map((opt, i) =>
+    `<button class="quiz-option" onclick="answerQuiz(${i})" data-idx="${i}">${opt}</button>`
+  ).join('');
+  document.getElementById('quizFeedback').className = 'quiz-feedback';
+  document.getElementById('quizFeedback').style.display = 'none';
+  document.getElementById('quizNextBtn').style.display = 'none';
+}
+
+let answered = false;
+function answerQuiz(idx) {
+  if (answered) return;
+  answered = true;
+  const q = state.quizQuestions[state.quizIndex];
+  const correctIdx = q.options.indexOf(q.a);
+  const buttons = document.querySelectorAll('.quiz-option');
+  buttons.forEach((b, i) => {
+    b.disabled = true;
+    if (i === correctIdx) b.classList.add('correct');
+    else if (i === idx && idx !== correctIdx) b.classList.add('wrong');
+  });
+  const isCorrect = idx === correctIdx;
+  if (isCorrect) { state.quizScore++; state.xp += 10; }
+  const fb = document.getElementById('quizFeedback');
+  fb.className = `quiz-feedback ${isCorrect ? 'correct' : 'wrong'}`;
+  fb.style.display = 'block';
+  fb.innerHTML = `<h5>${isCorrect ? 'Correct! +10 XP' : 'Not quite'}</h5><p>${q.a}</p>`;
+  document.getElementById('quizNextBtn').style.display = 'inline-flex';
+  clearInterval(state.timer);
+  save();
+  updateStats();
+}
+
+function nextQuestion() {
+  state.quizIndex++;
+  if (state.quizIndex >= state.quizQuestions.length) {
+    endQuiz();
+    return;
+  }
+  answered = false;
+  renderQuestion();
+  startTimer();
+}
+
+function endQuiz() {
+  state.quizzes++;
+  save();
+  updateStats();
+  document.getElementById('quizGame').style.display = 'none';
+  document.getElementById('quizResults').style.display = 'block';
+  const pct = Math.round((state.quizScore / state.quizQuestions.length) * 100);
+  document.getElementById('resultScore').textContent = `${state.quizScore}/${state.quizQuestions.length}`;
+  const msgs = ['Keep practicing!', 'Good effort!', 'Solid work!', 'Almost there!', 'Great job!', 'Outstanding!'];
+  document.getElementById('resultMsg').textContent = msgs[Math.min(Math.floor(pct / 20), 5)];
+}
+
+function startTimer() {
+  let time = 30;
+  document.getElementById('quizTimer').textContent = time + 's';
+  clearInterval(state.timer);
+  state.timer = setInterval(() => {
+    time--;
+    document.getElementById('quizTimer').textContent = time + 's';
+    if (time <= 0) {
+      clearInterval(state.timer);
+      if (!answered) {
+        // Auto-submit wrong
+        const q = state.quizQuestions[state.quizIndex];
+        const correctIdx = q.options.indexOf(q.a);
+        const buttons = document.querySelectorAll('.quiz-option');
+        buttons.forEach((b, i) => { b.disabled = true; if (i === correctIdx) b.classList.add('correct'); });
+        const fb = document.getElementById('quizFeedback');
+        fb.className = 'quiz-feedback wrong';
+        fb.style.display = 'block';
+        fb.innerHTML = `<h5>Time's up!</h5><p>${q.a}</p>`;
+        document.getElementById('quizNextBtn').style.display = 'inline-flex';
+        answered = true;
+      }
+    }
+  }, 1000);
+}
+
+// ===== TOAST =====
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.innerHTML = `<i class="fa-solid fa-circle-check" style="color:var(--green)"></i> ${msg}`;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2000);
+}
+
+// Keyboard shortcuts
+document.addEventListener('keydown', e => {
+  if (document.getElementById('tab-flashcards').classList.contains('active')) {
+    if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); flipCard(); }
+    if (e.key === 'ArrowRight') nextCard();
+    if (e.key === 'ArrowLeft') prevCard();
+    if (e.key === 'm' || e.key === 'M') markMastered();
+  }
+});
+
+document.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>

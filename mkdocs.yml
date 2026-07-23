@@ -1,0 +1,85 @@
+site_name: Data Engineering Learning Resources
+site_description: Curated notes and interview prep for data engineering
+site_url: ""
+repo_url: https://github.com/anomalyco/data-engineering-learning-resources
+repo_name: data-engineering-learning-resources
+
+docs_dir: docs/content
+site_dir: site
+
+theme:
+  name: material
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/weather-night
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to light mode
+  features:
+    - navigation.instant
+    - navigation.tracking
+    - navigation.expand
+    - search.highlight
+    - search.share
+    - content.code.copy
+
+markdown_extensions:
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.details
+  - admonition
+  - toc:
+      permalink: true
+  - tables
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/anomalyco/data-engineering-learning-resources
+
+nav:
+  - Home: README.md
+  - Index: INDEX.md
+  - Interview Prep:
+    - Roadmap: interview-prep/roadmap.md
+    - 2-Month Sprint Plan: interview-prep/2-month-sprint-plan.md
+    - Progress Checklist: interview-prep/progress-checklist.md
+    - Quiz App: quiz-app/index.html
+  - Apache Spark / PySpark:
+    - Notes: apache-spark-pyspark/notes.md
+    - Execution Architecture: apache-spark-pyspark/spark-concepts-execution-architecture.md
+    - Serialization: apache-spark-pyspark/serialization.md
+    - Learning Path: apache-spark-pyspark/learning-path.md
+    - QA Journey: apache-spark-pyspark/PYSPARK_QA_JOURNEY.md
+  - Apache Kafka:
+    - Notes: apache-kafka/notes.md
+  - Apache Flink:
+    - Notes: apache-flink/notes.md
+    - Kafka-to-Flink Setup: apache-flink/kafka-to-flink-local-setup.md
+    - Practice Roadmap: apache-flink/practice-roadmap.md
+  - Apache Iceberg:
+    - Notes: apache-iceberg/notes.md
+  - Foundations:
+    - Networking: foundations/networking.md
+    - Progress: interview-prep/foundations-progress.md
+  - System Design:
+    - Notes: system-design/notes.md
+    - Caching: system-design/caching.md
+  - EMR:
+    - Notes: emr/notes.md
+    - Hive/Tez Reducer Counts: emr/hive-tez/reducer-counts.md
+  - Changelog: CHANGELOG.md
+  - Contributing: CONTRIBUTING.md
+  - About: AGENTS.md

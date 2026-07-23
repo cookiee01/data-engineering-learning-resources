@@ -708,9 +708,14 @@ New stateful streaming API that replaces `mapGroupsWithState` / `flatMapGroupsWi
 - [Apache Spark Docs — Tuning](https://spark.apache.org/docs/latest/tuning.html) — start here for config reference
 - [Spark SQL Performance Tuning](https://spark.apache.org/docs/latest/sql-performance-tuning.html) — AQE, caching, join hints, partition tuning
 - [S3A Committer docs](https://hadoop.apache.org/docs/current/hadoop-aws/tools/hadoop-aws/committers.html) — cloud write path
+### Catalyst Optimizer (Specific)
 
-### Deep Internals
-- [Spark SQL Internals by Jacek Laskowski](https://books.japila.pl/spark-sql-internals/) — authoritative reference on Catalyst, Tungsten, encoders, UnsafeRow
+- **Unravel Data — Spark Catalyst Pipeline: A Deep Dive into Spark's Optimizer** (https://www.unraveldata.com/resources/catalyst-analyst-a-deep-dive-into-sparks-optimizer) — the best in-depth explanation available. Covers all 4 phases, clarifies misconceptions about cost model (mostly rule-based, not cost-based), explains what rules apply where, and includes AQE integration. More accurate and up-to-date than the original Databricks blog. Start here.
+- **Databricks Blog — Deep Dive into Spark SQL's Catalyst Optimizer** (https://www.databricks.com/blog/2015/04/13/deep-dive-into-spark-sqls-catalyst-optimizer.html) — the canonical post from the creators. Core concepts (tree + rule + pattern matching, 4 phases) are still correct. Does not cover AQE (didn't exist yet) and oversimplifies the cost model. Read for foundational understanding after Unravel.
+- **Jacek Laskowski — Spark SQL Internals** (https://books.japila.pl/spark-sql-internals/) — book-level reference covering Catalyst trees, rules, physical planning, and codegen in full detail.
+
+### General Deep Internals
+
 - [SparkInternals on GitHub (JerryLead)](https://github.com/JerryLead/SparkInternals) — problem-driven walkthrough of Spark 1.x internals. Still conceptually relevant for DAG, shuffle, BlockManager, scheduling
 - [EffectiveAI/SparkInternals](https://github.com/EffectiveAI/SparkInternals) — design principles, execution mechanisms, system architecture, performance optimization
 

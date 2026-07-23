@@ -12,15 +12,15 @@
 3. [Hidden Partitioning](#3-hidden-partitioning)
    - [Problems with Hive Partitioning](#problems-with-hive-partitioning)
    - [Partition Transforms](#partition-transforms)
-   - [Write Path & Read Path](#write-path--read-path)
+    - [Write Path & Read Path](#write-path-read-path)
    - [Partition Evolution](#partition-evolution)
    - [Buckets vs Identity](#buckets-vs-identity)
    - [Common Mistakes](#common-mistakes)
 4. [Row-Level Updates: CoW vs MoR](#4-row-level-updates-cow-vs-mor)
    - [Delete File Types](#delete-file-types)
-5. [Time Travel & Snapshot Cleanup](#5-time-travel--snapshot-cleanup)
-6. [ACID Commits & Concurrent Writers](#6-acid-commits--concurrent-writers)
-7. [Schema Evolution & Field IDs](#7-schema-evolution--field-ids)
+5. [Time Travel & Snapshot Cleanup](#5-time-travel-snapshot-cleanup)
+6. [ACID Commits & Concurrent Writers](#6-acid-commits-concurrent-writers)
+7. [Schema Evolution & Field IDs](#7-schema-evolution-field-ids)
 8. [Operational Maintenance Playbook](#8-operational-maintenance-playbook)
 9. [Quick Reference Cheatsheet](#9-quick-reference-cheatsheet)
 
@@ -55,8 +55,6 @@ Iceberg tracks every data file at the metadata layer. This enables:
 ## 2. Iceberg Metadata Architecture
 
 When Spark/Trino reads an Iceberg table, it traverses a **4-tier metadata tree**:
-
-Editable diagram: [`diagrams/metadata-tree.excalidraw`](diagrams/metadata-tree.excalidraw)
 
 ```
 Catalog (Glue / Hive Metastore / Nessie)
@@ -350,8 +348,6 @@ CALL catalog.system.remove_orphan_files(table => 'my_db.events');
 
 **Sam:** The atomic operation is not a file rename. It is the **catalog pointer swap** from the old metadata JSON to the new metadata JSON. Data files are written first, metadata is prepared next, and only then does the writer try to commit by updating the catalog pointer.
 
-Editable diagram: [`diagrams/acid-commit-flow.excalidraw`](diagrams/acid-commit-flow.excalidraw)
-
 ```mermaid
 sequenceDiagram
     participant W as Writer Job
@@ -416,8 +412,6 @@ ALTER TABLE events ALTER COLUMN amount TYPE DECIMAL(18, 2);
 **Alex:** What production jobs should I run for Iceberg tables?
 
 **Sam:** Think of maintenance as keeping metadata, files, and delete files healthy. Iceberg avoids Hive's listing problem, but it still needs periodic cleanup and compaction.
-
-Editable diagram: [`diagrams/maintenance-lifecycle.excalidraw`](diagrams/maintenance-lifecycle.excalidraw)
 
 ```mermaid
 flowchart TD
