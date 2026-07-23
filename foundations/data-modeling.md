@@ -176,6 +176,56 @@ flowchart TD
     FREQ -->|"Very rare<br/>(e.g., sales territory)"| T3["Type 3: Add column<br/>'previous_value', 'current_value'<br/>Use: at most 1 level of history"]
 ```
 
+### 3.3 SCD Type 2 — Worked Example with Real Rows
+
+**Question:** *"Show me the actual rows. Customer 42 moves Mumbai→Delhi on March 1. Orders happen Jan 15 (Mumbai) and Mar 10 (Delhi). What does the data look like?"*
+
+**dim_customer after the move:**
+
+| customer_sk | customer_id | full_name | city | effective_dt | end_dt | is_current |
+|---|---|---|---|---|---|---|
+| 101 | 42 | Asha Rao | Mumbai | 2024-01-01 | 2024-02-29 | 0 |
+| 187 | 42 | Asha Rao | Delhi | 2024-03-01 | NULL | 1 |
+
+**fact_sales (note: the fact row stores the SK valid at order time):**
+
+| order_id | date_sk | customer_sk | amount |
+|---|---|---|---|
+| 9001 | 20240115 | **101** | 500.00 |
+| 9150 | 20240310 | **187** | 720.00 |
+
+**Query results:**
+
+```sql
+-- "Revenue by customer city" — historically correct, no extra work:
+SELECT c.city, SUM(f.amount)
+FROM fact_sales f JOIN dim_customer c ON f.customer_sk = c.customer_sk
+GROUP BY c.city;
+
+-- Mumbai: 500.00   (order 9001 → SK 101 → Mumbai)
+-- Delhi:  720.00   (order 9150 → SK 187 → Delhi)
+```
+
+```sql
+-- "Where did the customer live on 2024-02-01?" — point-in-time lookup:
+SELECT city FROM dim_customer
+WHERE customer_id = 42
+  AND effective_dt <= '2024-02-01'
+  AND (end_dt IS NULL OR end_dt > '2024-02-01');
+-- → Mumbai
+```
+
+**The two lookup patterns interviews test:**
+1. **As-was (default):** fact row's stored SK → the version valid when the event happened. No date filtering needed in the query.
+2. **As-is (current view):** join on `customer_id` with `is_current = 1` → every historical order attributed to today's city. Use when the business wants current segmentation of historical facts.
+
+> [!WARNING]
+> The classic bug: joining fact to dimension on the **natural key**
+> (`customer_id`) without an `is_current` or date filter — you get
+> **row multiplication** (one fact row × N dimension versions).
+> If your GROUP BY totals are suddenly 2-3x too big after an SCD
+> attribute change, this is why.
+
 ---
 
 ## 4. Normal Forms — When to Normalize, When to Denormalize
@@ -420,6 +470,91 @@ GROUP BY d.email_domain, p.category;
 5. **Aggregate:** `GROUP BY email_domain, category` → hash aggregation
 6. **Not bottlenecked** by join count because facts are on the probe side of hash joins, and dimensions are build-side (smaller)
 
+### Q7: "Design a data model for a ride-sharing platform (Uber). Business needs: driver earnings reports, rider trip history, and surge-pricing analysis."
+
+**Answer:**
+
+```mermaid
+flowchart TB
+    subgraph Facts
+        FT["fact_trip (transactional)<br/>grain: one row per completed trip<br/>trip_sk, rider_sk, driver_sk,<br/>date_sk, pickup_loc_sk, dropoff_loc_sk,<br/>fare_amount, distance_km, duration_min,<br/>surge_multiplier, payment_sk"]
+        FR["fact_driver_shift (accumulating)<br/>grain: one row per driver shift<br/>login_dt, logout_dt, trips_completed,<br/>online_minutes, earnings"]
+        FS["fact_surge_snapshot (periodic)<br/>grain: one row per zone per minute<br/>zone_sk, minute_sk, active_riders,<br/>active_drivers, surge_multiplier"]
+    end
+    subgraph Dims
+        DR["dim_rider (SCD2: city)"]
+        DD["dim_driver (SCD2: vehicle, rating band)"]
+        DL["dim_location (zone hierarchy)"]
+        DT["dim_date + dim_time"]
+        DP["dim_payment (junk: method, promo flags)"]
+    end
+    FT --> DR
+    FT --> DD
+    FT --> DL
+    FT --> DT
+    FT --> DP
+    FR --> DD
+    FS --> DL
+```
+
+**Why three fact tables:** each business question has a different grain.
+Forcing surge analysis into fact_trip fails (surge exists even when no
+trip completes). Driver earnings per shift needs the accumulating
+snapshot because milestones (login→first trip→logout) are the analysis
+unit.
+
+### Q8: "fact_sales grows 2 billion rows/year. How do you partition and cluster it?"
+
+**Answer:**
+```
+1. Partition by date (day or month) — aligns with:
+   - Query filters (WHERE order_date >= ...)
+   - Retention (drop old partitions, not DELETE)
+   - Backfills (rewrite one partition, not the table)
+
+2. Cluster/sort by the next-most-filtered column:
+   - Snowflake: clustering key on (customer_id) if point lookups
+     by customer dominate
+   - Redshift: SORTKEY (order_date, region)
+   - BigQuery: partition by date + cluster by customer_id
+   - Iceberg: partition by days(order_ts), sort within by customer_id
+
+3. Row-size check: 2B rows × ~200 bytes = 400 GB/year.
+   At day-partition grain: ~1.1 GB/partition/day — healthy.
+   Month partitions (33 GB) also fine; avoid year (too coarse for
+   pruning + retention).
+```
+
+> [!TIP]
+> Interview rule: **partition by what's filtered AND what maps to your
+> retention/backfill boundary** — almost always a date column. Cluster
+> by the second most selective filter. Never partition by a
+> high-cardinality column (millions of partitions = metadata collapse).
+
+### Q9: "Give me a real example where snowflake schema beats star in production."
+
+**Answer:** Legitimate snowflake cases:
+
+1. **Large shared sub-dimension:** `dim_product` has 50M rows; a
+   `dim_brand` attribute set repeats identically across 10K products
+   each. Normalizing brand out saves real storage AND makes brand-level
+   renames one-row updates instead of 10K-row updates (brand correction
+   happens more than you'd think after acquisitions).
+
+2. **Hierarchy navigation:** Geography `city → state → country → region`
+   with different teams owning different levels, and level-specific
+   attributes (country has currency, region has sales VP). One wide
+   dim_location forces all attributes onto every city row.
+
+3. **Conformance across grains:** `dim_date` facts join at day grain,
+   but `fact_budget` is monthly. A `dim_month` snowflaked off
+   `dim_date` lets budget join at its true grain instead of a
+   fake "first day of month" hack.
+
+**The honest caveat:** BI tools generate uglier SQL over snowflake,
+and joins multiply. Default to star; snowflake only when a *measured*
+storage/update cost justifies it.
+
 ---
 
 ## 8. Decision Tree — Model Selection
@@ -456,3 +591,8 @@ flowchart TD
 | **Surrogate key vs natural key?** | Surrogate in warehouse (always), natural in source (decouples warehouse from source) |
 | **Lots of small dimensions?** | Collapse into junk dimension or degenerate in fact |
 | **New column in source?** | Add to existing dimension (if related), new dim (if standalone), or junk (if low cardinality) |
+| **SCD row multiplication bug?** | Joined on natural key without is_current/date filter — always join fact→dim on surrogate key |
+| **As-was vs as-is?** | As-was: fact's stored SK (default). As-is: join natural key + is_current=1 |
+| **Fact partitioning?** | Partition by date (matches filters + retention + backfills), cluster by 2nd filter column. Never partition by high-cardinality column |
+| **Multiple business questions?** | One fact table per grain — don't force different grains into one table |
+| **When snowflake?** | Measured cost of giant repeated sub-dimensions, owned hierarchies, multi-grain conformance. Default star |
