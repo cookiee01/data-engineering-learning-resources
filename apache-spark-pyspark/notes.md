@@ -871,3 +871,8 @@ GROUP BY customer_id;
 ### Performance Optimization (Cloud)
 - [9 Powerful Spark Optimization Techniques (Databricks Community)](https://community.databricks.com/t5/community-articles/9-powerful-spark-optimization-techniques-in-databricks-with-real/ba-p/132925) — real examples, 90% runtime reduction
 - [Databricks Performance Optimization Guide (2026)](https://www.genaiblueprints.com/topics/performance-tuning/) — Photon, Liquid Clustering, Predictive Optimization
+
+### Best Articles
+- [On Spark, Hive, and Small Files (Airbnb Engineering)](https://medium.com/airbnb-engineering/on-spark-hive-and-small-files-an-in-depth-look-at-spark-partitioning-strategies-a9a364f908) — the definitive guide to Spark partitioning strategies and managing output file count; explains coalesce, repartition, dynamic partition strategies at production scale
+- [Understanding Apache Spark Shuffle (Philipp Brunenberg)](https://medium.com/@philipp.brunenberg/understanding-apache-spark-shuffle-85644d90c8c6) — detailed walkthrough of shuffle internals: map side write, reduce side read, SortShuffleManager, performance bottlenecks
+- [Apache Spark Internals — Catalyst, Tungsten, Shuffles (DataVidhya)](https://datavidhya.com/learn/de-system-design/technology-deep-dives/spark-internals/) — concise interview-focused deep dive covering execution model, Catalyst phases, Tungsten off-heap memory, and skew mitigation

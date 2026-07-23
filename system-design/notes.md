@@ -426,4 +426,21 @@ A reusable framework for DE system design interviews:
 - [Apache Polaris](https://polaris.apache.org/) — open REST catalog for Iceberg
 - [Debezium Documentation](https://debezium.io/documentation/) — CDC connector patterns
 
+### Best Articles by Topic
+
+#### Real-Time Analytics Pipeline
+- [Kafka + Flink + ClickHouse: Building a Real-Time Analytics Platform (Uber Engineering)](https://eng.uber.com/real-time-analytics-platform/) — production architecture for petabyte-scale real-time analytics with explicit tradeoff decisions
+- [Designing a Real-Time Metrics Pipeline (HelloInterview)](https://www.hellointerview.com/learn/system-design/design-a-real-time-metrics-pipeline) — step-by-step system design walkthrough covering Kafka, Flink, Druid/ClickHouse, tradeoffs at each layer
+
+#### CDC Pipeline
+- [Building a Reliable CDC Pipeline (Debezium + Kafka + Flink + Iceberg)](https://debezium.io/blog/category/tutorial/) — end-to-end CDC architecture with schema evolution handling
+
+#### Data Lakehouse
+- [The Medallion Architecture (Databricks)](https://www.databricks.com/glossary/medallion-architecture) — bronze/silver/gold pattern
+- [Designing a Data Lakehouse (HelloInterview)](https://www.hellointerview.com/learn/system-design/design-a-data-lakehouse) — full system design walkthrough covering Iceberg, catalog choice, query engine selection
+
+#### General System Design for DE
+- [System Design for Data Engineers (Akanksha Singh)](https://medium.com/@akanksha_singh/system-design-for-data-engineers-65cf66abf325) — explains how DE system design differs from SWE system design, with data-specific tradeoffs
+- [Data Engineering System Design Interview Framework (dataskew)](https://dataskew.io/blog/data-engineer-interview-system-design) — 5-step framework with 3 example scenarios, common pitfalls, and drill questions
+
 System design for caching concepts (CDN, Redis, write-through) is covered separately in [`system-design/caching.md`](caching.md).

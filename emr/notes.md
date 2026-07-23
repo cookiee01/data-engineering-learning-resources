@@ -1284,3 +1284,4 @@ I default to EMR on EC2 for most use cases because of its simplicity and full ap
 - [Hadoop: understanding splits, blocks & everything in between](https://jeromerajan.com/2023/04/21/hadoop-understanding-splits-blocks-everything-in-between/)
 - [Hive on Tez: determining reducer counts](hive-tez/reducer-counts.md)
 - [AWS re:Invent EMR sessions on YouTube](https://www.youtube.com/results?search_query=aws+emr+reinvent)
+- [AWS Blog — EMR best practices & case studies](https://aws.amazon.com/blogs/big-data/tag/amazon-emr/) — official AWS blog posts tagged with EMR

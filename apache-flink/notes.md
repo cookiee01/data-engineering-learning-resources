@@ -446,8 +446,9 @@ Flink's exactly-once guarantee to external systems uses the checkpoint barrier a
 - [Flink Documentation — Concepts](https://nightlies.apache.org/flink/flink-docs-stable/docs/concepts/overview/) — official: stateful, streaming-first execution model
 - [Flink Documentation — Operations](https://nightlies.apache.org/flink/flink-docs-stable/docs/ops/overview/) — checkpointing, backpressure, monitoring
 - [Ververica Flink Primer](https://www.ververica.com/blog/flink-operations-primer) — production ops patterns
-- [Streaming 101 (Tyler Akidau)](https://www.oreilly.com/radar/the-world-beyond-batch-streaming-101/) — foundational streaming concepts (event time, watermarks, windows); not Flink-specific but essential reading
-- [Streaming 102 (Tyler Akidau)](https://www.oreilly.com/radar/the-world-beyond-batch-streaming-102/) — advanced: triggers, accumulation, retraction
+- [Streaming 101 (Tyler Akidau)](https://www.oreilly.com/radar/the-world-beyond-batch-streaming-101/) — the seminal article on event-time, watermarks, windows; non-Flink-specific but the foundation every streaming engineer must understand
+- [Streaming 102 (Tyler Akidau)](https://www.oreilly.com/radar/the-world-beyond-batch-streaming-102/) — advanced: triggers, accumulation modes, retraction; directly informs Flink's trigger API and session window semantics
+- [Flink Watermarks and Event Time — Handling Out-of-Order Events (Streamkap)](https://streamkap.com/resources-and-guides/flink-watermarks-event-time) — production-focused guide: watermark strategies, idle source problem, multi-stream propagation, monitoring with currentInputWatermark metric
 - Practice roadmap: [`apache-flink/practice-roadmap.md`](practice-roadmap.md) — phased hands-on progression
 - Local setup guide: [`apache-flink/kafka-to-flink-local-setup.md`](kafka-to-flink-local-setup.md)
 - More curated links (resources, hands-on labs): [`data-engineering-learning-lab/apache-flink/`](https://github.com/cookiee01/data-engineering-learning-lab/tree/main/apache-flink)

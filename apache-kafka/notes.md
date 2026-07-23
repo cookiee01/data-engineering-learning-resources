@@ -351,4 +351,7 @@ After:    k2→X  k3→P  k1→C          (latest value per key; tombstone
 - [Kafka Crash Course (YouTube)](https://youtu.be/DU8o-OTeoCc?si=Ce1_j7LbREdRqSNL) — quick visual refresher
 - [Kafka Deep Dive (Hello Interview)](https://www.hellointerview.com/learn/system-design/deep-dives/kafka) — system-design angle on internals
 - [Kafka: The Definitive Guide (Confluent, free ebook)](https://www.confluent.io/resources/kafka-the-definitive-guide/) — reference book for configs
+- [Exactly-Once Semantics Are Possible: Here's How Kafka Does It (Confluent, 2017)](https://www.confluent.io/blog/exactly-once-semantics-are-possible-heres-how-apache-kafka-does-it/) — the canonical explanation of idempotent producers, transactions, and exactly-once semantics from Kafka's original creators; still the best first read on EOS
+- [Demystifying Kafka Exactly Once Semantics (HelloFresh Engineering)](https://engineering.hellofresh.com/demystifying-kafka-exactly-once-semantics-eos-390ae1c32bba) — practical production perspective on EOS boundaries, what it does and doesn't guarantee, with clear examples of the read-process-write cycle
+- [Kafka Monthly Digest (Red Hat)](https://developers.redhat.com/blog/2025/01/07/kafka-monthly-digest-december-2024) — community highlights, new KIPs, ecosystem changes
 - More curated links (MSK, Connect, Streams): [`data-engineering-learning-lab/apache-kafka/resources.md`](https://github.com/cookiee01/data-engineering-learning-lab/blob/main/apache-kafka/resources.md)

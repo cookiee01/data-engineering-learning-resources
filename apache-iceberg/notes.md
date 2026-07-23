@@ -483,3 +483,6 @@ flowchart TD
 - [Iceberg Hidden Partitioning](https://iceberg.apache.org/docs/latest/partitioning/)
 - [Hello Interview – Iceberg Deep Dive](https://www.hellointerview.com/learn/system-design/deep-dives/apache-iceberg)
 - [Tabular Blog (Iceberg creators)](https://tabular.io/blog/)
+- [Apache Iceberg Architecture Deep Dive (BigData Boutique)](https://bigdataboutique.com/blog/apache-iceberg-architecture-deep-dive) — layer-by-layer walkthrough of catalog, metadata files, manifest lists, manifests, data files; concrete example of what happens on disk when you create and write to a table
+- [Deep Dive into Apache Iceberg Architecture: The Three Layers That Power Your Lakehouse (Snowflake Builders Blog)](https://medium.com/snowflake/deep-dive-into-apache-iceberg-architecture-the-three-layers-that-power-your-lakehouse-83c03403e503) — dissects catalog, metadata, and data layers with practical query trace example showing how hierarchical pruning narrows search from catalog → Parquet files
+- [2025 Comprehensive Guide to Apache Iceberg (Alex Merced)](https://blog.datalakehouse.help/posts/2025-01-2025-comprehensive-apache-iceberg-guide/) — definitive yearly guide covering architecture, ecosystem, migration patterns, comparison with Delta Lake/Hudi
