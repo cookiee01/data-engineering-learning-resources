@@ -45,40 +45,34 @@ Kafka messages: Avro (schema evolution, compact binary)
 
 **Question:** *"Draw the internal structure of a Parquet file and explain how Spark uses it to skip data."*
 
-```mermaid
-flowchart TD
-    subgraph "Parquet File"
-        M1["Magic: PAR1"]
-        RG1["Row Group 1 (128 MB)"]
-        CC1["Column Chunk: customer_id"]
-        CC2["Column Chunk: amount"]
-        CC3["Column Chunk: order_date"]
-        RG2["Row Group 2"]
-        CC4["..."]
-        FT["Footer"]
-        S["Schema (Thrift)"]
-        RM["Row Group 1 Metadata<br/>- num_rows: 1M<br/>- total_bytes: 128 MB"]
-        CM["Column 'amount' Metadata<br/>- type: DOUBLE<br/>- encoding: DELTA_BINARY_PACKED<br/>- codec: ZSTD<br/>- statistics: min=5.0, max=999.0<br/>  null_count=0"]
-        CI["Column Index (v2)<br/>Page 0: min=5.0, max=120.0<br/>Page 1: min=130.0, max=999.0"]
-        FL4["Length: 4 bytes"]
-        M2["Magic: PAR1"]
-    end
-
-    M1 --> RG1
-    RG1 --> CC1
-    RG1 --> CC2
-    RG1 --> CC3
-    CC2 --> CI
-    RG1 --> RG2
-    RG2 --> CC4
-    RG2 --> FT
-    FT --> S
-    FT --> RM
-    FT --> CM
-    FT --> CI
-    FT --> FL4
-    FL4 --> M2
 ```
+File: [PAR1] [Row Group 1] [Row Group 2] ... [ColumnIndex + OffsetIndex per RG] [FileMetaData (Thrift)] [footer_len: 4B] [PAR1]
+         ▲                    ▲                                           ▲
+         │                    │                                           │
+       magic             128 MB rows,                                  schema + stats +
+                         column chunks per col                        row group metadata
+                                                                       + column_index_offset
+                                                                         → points to ColumnIndex
+
+Each Row Group:
+┌─────────────────────────────────────────────────────┐
+│ Column Chunk "customer_id" │ Column Chunk "amount" │ Column Chunk "order_date" │
+│   Page Header              │   Page Header          │   Page Header             │
+│   Data Page (PLAIN)        │   Data Page (DELTA)    │   Data Page (RLE/DICT)    │
+│   Page Header              │   Page Header          │   Dictionary Page         │
+│   Data Page (RLE)          │   Data Page (DELTA)    │   Page Header             │
+└─────────────────────────────────────────────────────┘
+                                                         ↓
+                                           ColumnIndex v2 (per-page min/max per col)
+                                           OffsetIndex v2 (page offsets/sizes)
+```
+
+**Key insight for interviews:** The footer is read FIRST. It contains
+statistics for every column in every row group. Spark decides which
+row groups to read without touching any data pages. The ColumnIndex
+(since Parquet 2.0) provides per-page statistics for even finer
+skipping — stored between the last row group data and the footer,
+pointed to by offsets in the footer metadata.
 
 **Key insight for interviews:** The footer is read FIRST. It contains
 statistics for every column in every row group. Spark decides which
@@ -180,8 +174,8 @@ flowchart LR
         B100["File 100<br/>Footer: 50 KB"]
     end
 
-    A1 -.-> COST1["Problem: 10,000 metadata operations<br/>S3 LIST = 500 ms each → 5000 seconds"]
-    B1 -.-> COST2["100 metadata operations → 50 seconds"]
+    A1 -.-> COST1["Problem: 1000 separate GET requests for footers<br/>(~30 ms each) + 1000 task slots = ~30 s overhead"]
+    B1 -.-> COST2["100 files → 100 GET requests + 100 tasks = ~3 s overhead"]
 ```
 
 **Fix:**
@@ -246,7 +240,10 @@ sequenceDiagram
 ```
 JSON:   100 + 150 bytes overhead (key names) = 250 bytes
 Avro:   100 + 5 bytes overhead = 105 bytes (no key names in data)
-Ratio:  Avro is 2.4x smaller, plus Schema Registry gives evolution
+Ratio:  Avro roughly halves size vs JSON for typical payloads;
+        overhead ratio varies with number of fields and field name length.
+        With Schema Registry, schemas are never in the message — just a
+        4-byte ID.
 ```
 
 ### 3.2 Schema Resolution with Example
@@ -319,8 +316,8 @@ Encoding formula: (n << 1) ^ (n >> 63)   for signed 64-bit
 Value   Zig-Zag     Bytes (binary)
  42     (84)  →     0x54                                    → 1 byte
  -1     (1)   →     0x01                                    → 1 byte
- 1000   (2000) →    0x90 0x0F                               → 2 bytes
-1000000 (2000000) → 0x80 0x84 0x7A                          → 3 bytes
+  1000   (2000) →    0xD0 0x0F                               → 2 bytes
+ 1000000 (2000000) → 0x80 0x89 0x7A                          → 3 bytes
 ```
 
 Each byte uses 7 bits for data + 1 continuation bit (MSB).
@@ -353,8 +350,10 @@ SET orc.bloom.filter.fpp=0.05;
 Bloom filters definitively answer "this stripe definitely doesn't
 contain this ID" — useful for point lookups on high-cardinality keys.
 
-**Tradeoff:** ORC is ~15% faster for Hive scans (thanks to stripe-level
-indexes), but Parquet has universal engine support.
+**Tradeoff:** ORC stripe-level indexes can give faster scans in Hive
+workloads, but Parquet has universal engine support and a broader
+ecosystem. For new projects outside Hive-heavy environments, Parquet
+is the safer choice.
 
 ---
 
@@ -431,21 +430,23 @@ flowchart TD
 ### Q1: "Your Spark job reads 1000 small Parquet files on S3. It's slow. Diagnose and fix."
 
 **Diagnosis:**
-- S3 LIST for 1000 files = ~0.5s each → 500s metadata overhead
-- Each file has its own footer → Spark reads 1000 footers instead of 10
-- No row group pruning benefit (1 row group per file)
+- Each file requires a separate GET request with byte-range for its footer
+  → 1000 requests × ~30 ms = 30 s in request latency alone
+- 1000 tasks created → scheduling and bookkeeping overhead on driver
+- No row group pruning benefit (1 row group per file, or none at 10 MB)
 
 ```mermaid
 flowchart LR
-    IN["10 GB data<br/>1000 files × 10 MB"] --> READ["Spark reads 1000 footers<br/>(500 ms each)"]
-    READ --> TASK["1000 tasks created<br/>Task scheduling overhead"]
-    TASK --> SLOW["Total: ~15 minutes"]
+    IN["10 GB data<br/>1000 files × 10 MB"] --> READ["Spark reads 1000 footers<br/>(1000 GET requests × ~30 ms)"]
+    READ --> TASK["1000 tasks created<br/>Driver scheduling overhead"]
+    TASK --> SLOW["Total: ~2-3 min"]
+
     SLOW --> FIX
 
     subgraph FIX["Fix: Consolidate"]
-        C["df.coalesce(10)<br/>.write<br/>.option('parquet.block.size', '256MB')"]
+        C["df.coalesce(10)<br/>.option('parquet.block.size', '256MB')<br/>.write.parquet(...)"]
     end
-    FIX --> OUT["10 files × 1 GB<br/>with 8 row groups each<br/>Total: ~2 minutes"]
+    FIX --> OUT["10 files × 1 GB<br/>with 8 row groups each<br/>Total: ~30 s"]
 ```
 
 **Expected answer:**
@@ -457,7 +458,7 @@ flowchart LR
 
 | Mechanism | What It Skips | How | Granularity |
 |---|---|---|---|
-| **Column pruning** | Entire columns | Spark reads only column chunks for selected columns | File-level |
+| **Column pruning** | Entire columns | Spark reads only column chunks for selected columns — within each row group, only requested column chunks are materialized | Column chunk (within row group) |
 | **Predicate pushdown** | Row groups (and pages) | Footer statistics + column index to skip non-matching data | Row group / page |
 
 **Example:** `SELECT amount FROM orders WHERE status = 'DELIVERED'`
@@ -480,7 +481,7 @@ flowchart LR
     WITHOUT["Without dictionary<br/>5M UUIDs × 36 bytes<br/>= 180 MB (PLAIN)"]
     TOTAL --> COMPARE["Dictionary made it WORSE<br/>200 MB vs 180 MB<br/>+ CPU overhead"]
 
-    COMPARE --> FIX["Fix:<br/>spark.conf.set('spark.sql.parquet.dictionaryFilter', true)<br/>- or write with parquet.dictionary.page.size per-column"]
+    COMPARE --> FIX["Fix:<br/>df.write.option('parquet.enable.dictionary', 'false')<br/>- or set parquet.dictionary.page.size threshold<br/>  (per-column, default 1 MB) to a smaller value"]
 ```
 
 **Answer:** Dictionary encoding stores every distinct value once + index per row. For high-cardinality columns (UUIDs, hashes, timestamps), the dictionary page is nearly as large as the data, and both encode and decode add CPU. **Dictionary helps low-cardinality columns only.** Disable it per-column for UUIDs.
@@ -560,9 +561,11 @@ Sorted:    "CANCELLED", "CANCELLED", ..., "DELIVERED", ..., "PENDING", ..., "SHI
               long runs → 200,1 (200 of same index = 4 bytes vs 200 entries × 2 bytes each)
 ```
 
-**Measured effect:** Sorting by `order_date` before writing Parquet
-can improve overall compression by 20–40% because adjacent rows have
-similar values, making RLE + delta encoding more effective.
+**Effect on compression:** Sorting rows so that values cluster (e.g.,
+`ORDER BY status, order_date`) increases the length of identical-value
+runs, making RLE and delta encoding more effective. The benefit depends
+on data cardinality and ordering — gains of 10–30% are plausible on
+real workloads, but the exact number varies with data distribution.
 
 > [!TIP]
 > Production pattern: sort by high-cardinality date column + one
