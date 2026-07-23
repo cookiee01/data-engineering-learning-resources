@@ -520,6 +520,87 @@ flowchart TD
     F2 --> SNAP["Alternative: Kafka Streams<br/>restore from local RocksDB<br/>snapshots instead of full replay"]
 ```
 
+### Q8: "Kafka vs Pulsar vs Kinesis — how do you choose?"
+
+| Dimension | Kafka | Pulsar | Kinesis |
+|---|---|---|---|
+| **Architecture** | Brokers own storage + compute | Brokers (compute) + BookKeeper bookies (storage) separated | Fully managed AWS service |
+| **Scaling** | Add brokers; partitions pinned to brokers | Scale compute and storage independently | Reshard streams (merge/split shards) |
+| **Tiered storage** | KIP-405 (4.0) | Native from day one | Kinesis Data Streams On-Demand / extended retention |
+| **Multi-tenancy** | Weak (ACLs, quotas) | Strong (namespaces, per-tenant isolation) | Account-level |
+| **Ecosystem** | Largest: Connect, Streams, Flink, every vendor | Growing, smaller | AWS-native (Firehose, Lambda) |
+| **Ops burden** | You run it (or MSK/Confluent) | Higher (two systems: brokers + bookies) | Lowest (managed) |
+
+**Interview answer:** "Default Kafka — ecosystem and hiring pool win.
+Pulsar when multi-tenancy and independent storage scaling are hard
+requirements (large shared platform teams). Kinesis when you're all-in
+AWS, small team, and operational simplicity beats cost at scale
+(Kinesis gets expensive at high throughput vs self-managed Kafka)."
+
+### Q9: "Design disaster recovery for a Kafka cluster spanning two regions."
+
+```mermaid
+flowchart LR
+    subgraph RegionA["Region A (primary)"]
+        KA["Kafka cluster<br/>topics: orders, payments"]
+        PA["Producers"]
+        CA["Consumers"]
+    end
+    subgraph RegionB["Region B (DR)"]
+        KB["Kafka cluster<br/>(replica topics)"]
+        CB["Consumers (standby)"]
+    end
+    PA --> KA
+    KA --> CA
+    KA -->|"MirrorMaker 2:<br/>async replication,<br/>offset translation"| KB
+    KB --> CB
+
+    KA -.->|"Region A fails:<br/>1. Failover producers to B<br/>2. Consumers start from<br/>   translated offsets<br/>3. RPO = replication lag (seconds)"| KB
+```
+
+**Key decisions:**
+- **Async replication (MirrorMaker 2)** is the standard — sync
+  cross-region replication kills latency and availability (CAP)
+- **RPO** = replication lag (seconds to minutes), not zero
+- **Offset translation**: MM2 maintains offset mapping so failover
+  consumers resume approximately where they left off
+- **Active-active vs active-passive**: active-active needs conflict
+  handling for writes in both regions (rarely worth it for DE workloads)
+
+### Q10: "How does MirrorMaker 2 actually work? What are its failure modes?"
+
+```
+Architecture:
+  MM2 runs as Kafka Connect connectors:
+  - MirrorSourceConnector: consumes from source topics,
+    produces to target as <source-alias>.<topic-name>
+  - MirrorCheckpointConnector: syncs consumer group offsets
+    (via a checkpoints topic + offset mapping)
+  - MirrorHeartbeatConnector: liveness probes between clusters
+
+What it preserves:     messages, keys, headers, partition assignment
+What it does NOT:      source topic configs (set on target manually),
+                       ACLs, exactly-once across clusters
+
+Failure modes:
+1. Replication lag spikes → target falls behind; monitor
+   replication-lag as a first-class metric
+2. Topic rename loop: A→B and B→A both configured without
+   filtering → infinite mirror loop. Use topic filters/aliases
+3. Offset translation gaps: checkpoints connector lagging means
+   failover consumers start too far back → duplicate processing
+4. Schema registry mismatch: two registries, same subject, different
+   IDs → deserialize failures on target. Mirror schemas too
+```
+
+**Alex:** So MM2 gives me geo-replication — do I still need backups?
+
+**Sam:** Different failure domains. MM2 protects against **region loss**;
+it faithfully replicates **accidental deletes and corrupt data too**.
+Backups (topic exports to S3 with schema snapshots) protect against
+**logical corruption and human error**. You need both: MM2 for DR,
+backups for "someone deleted the topic / pushed poison messages."
+
 ---
 
 ## 11. Decision Trees
