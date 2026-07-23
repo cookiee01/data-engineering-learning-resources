@@ -36,7 +36,7 @@ Reference `interview-prep/progress-checklist.md` for granular checklist items un
 ---
 
 ## Apache Flink
-- **Resources:** `apache-flink/README.md`, `apache-flink/kafka-to-flink-local-setup.md`, `apache-flink/practice-roadmap.md`
+- **Resources:** `apache-flink/notes.md`, `apache-flink/kafka-to-flink-local-setup.md`, `apache-flink/practice-roadmap.md`
 - **Topics:** Windowing (tumbling/sliding/session), event-time vs processing-time, watermarks & late data, keyed/operator state, state backends, checkpointing & 2PC, CEP, backpressure
 - **Status:** ░░░░░░░░░░ 0%
 

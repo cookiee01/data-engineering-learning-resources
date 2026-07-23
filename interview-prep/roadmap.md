@@ -364,7 +364,7 @@ Prepare 2-3 stories using the STAR method (Situation, Task, Action, Result).
 | Spark concepts | `apache-spark-pyspark/notes.md` |
 | Spark execution architecture | `apache-spark-pyspark/spark-concepts-execution-architecture.md` |
 | Kafka fundamentals | `apache-kafka/notes.md` |
-| Flink overview | `apache-flink/README.md` |
+| Flink overview | `apache-flink/notes.md` |
 | Flink + Kafka setup | `apache-flink/kafka-to-flink-local-setup.md` |
 | Flink practice roadmap | `apache-flink/practice-roadmap.md` |
 | Iceberg architecture | `apache-iceberg/notes.md` |
