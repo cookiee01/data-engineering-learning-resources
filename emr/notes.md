@@ -1,4 +1,4 @@
-# EMR / Hadoop — Staff Engineer Notes
+# EMR / Hadoop Notes
 
 > [!NOTE]
 > This file covers EMR at depth: architecture, operations, security, tuning, and production patterns. For Spark-specific tuning (committers, AQE, shuffle), see `apache-spark-pyspark/notes.md`. For the broader AWS ecosystem (Glue vs EMR, IAM, pipeline patterns), see `aws-data-engineering/notes.md`.
@@ -456,7 +456,7 @@ Every EMR cluster uses three IAM roles:
 | **EC2 Instance Profile** (`EMR_EC2_DefaultRole`) | EC2 instances assuming this role for AWS access | `s3:*` on data buckets, `dynamodb:*` on EMRFS consistency table, `kms:Decrypt` |
 | **Auto Scaling Role** (`EMR_AutoScaling_DefaultRole`) | Managed Scaling adding/removing nodes | `ec2:Describe*`, `cloudwatch:GetMetricData` |
 
-**Least-privilege EC2 instance profile (staff-level):**
+**Least-privilege EC2 instance profile:**
 
 ```json
 {
@@ -801,7 +801,7 @@ aws ec2 create-image \
 
 ### Spark on EMR Configuration Profile
 
-Staff-level default Spark configs for EMR:
+Recommended Spark config defaults for EMR:
 
 ```json
 {
@@ -1127,7 +1127,7 @@ Same job on EC2 transient with r5.2xlarge (4 vCPU, 32 GB):
 
 Serverless is cheaper for short, bursty jobs (5–30 minutes). For long or predictable jobs, EC2-based EMR is typically more cost-effective.
 
-### Limitations (Staff-Level Awareness)
+### Limitations
 
 | Limitation | Impact | Workaround |
 |---|---|---|
@@ -1237,8 +1237,6 @@ s3-dist-cp \
 ---
 
 ## 15. Key Interview Answers
-
-### Staff-Level Questions
 
 #### "Design a production ETL pipeline using EMR"
 
