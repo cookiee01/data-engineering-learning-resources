@@ -9,12 +9,15 @@ This is the navigation hub for the repo.
 4. `apache-flink/`
 5. `apache-spark-pyspark/`
 6. `apache-iceberg/`
-7. AWS analytics stack: `emr/`
+7. `python/` — packaging, deployment, versioning, tooling
+8. AWS analytics stack: `emr/`
 
 ## General Resource Hubs
 - [DataEngineering.wiki – Learning Resources](https://dataengineering.wiki/Learning+Resources)
 
 ## Topics
+- Python
+  - `python/notes.md` (packaging, pyproject.toml, wheels, Poetry/uv, SemVer, deployment, code quality, enterprise tooling)
 - Foundations
   - `foundations/networking.md`
   - `interview-prep/foundations-progress.md`

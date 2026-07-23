@@ -81,6 +81,8 @@ nav:
   - Foundations:
     - Networking: foundations/networking.md
     - Progress: interview-prep/foundations-progress.md
+  - Python:
+    - Notes: python/notes.md
   - System Design:
     - Notes: system-design/notes.md
     - Caching: system-design/caching.md

@@ -6,6 +6,7 @@ The format is based on Keep a Changelog.
 
 ## [Unreleased]
 ### Added
+- Added `python/notes.md` — enterprise Python knowledge in dialogue format: pyproject.toml (PEP 621), sdist vs wheel, pip/uv/Poetry comparison, dependency pinning and lock files, SemVer and PEP 440, Docker multi-stage builds for Python, code quality stack (Ruff, Mypy, Pytest, Pre-commit), runtime management (pyenv, uv python), enterprise private PyPI proxies (Artifactory, CodeArtifact, devpi), security scanning, quick-reference cheatsheet with 3 Mermaid diagrams
 - Added Mermaid architecture diagrams to three core notes files: Kafka (broker/partition layout, producer write path sequence), Flink (JobManager/TaskManager architecture, aligned checkpoint flow, watermark mechanism), System Design (CDC pipeline, real-time metrics pipeline, medallion architecture, incremental batch pipeline) — replaces ASCII diagrams with rendered Mermaid flowcharts and sequence diagrams
 - Added GitHub-flavored admonition callouts: `> [!WARNING]` (Kafka acks+min.insync.replicas trap), `> [!TIP]` (Flink idle partition watermark fix), `> [!NOTE]` (lakehouse storage-layer convergence insight) for visual emphasis
 - Enabled Mermaid rendering in MkDocs via `pymdownx.superfences` custom fence config
