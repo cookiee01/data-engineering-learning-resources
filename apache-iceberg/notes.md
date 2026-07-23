@@ -7,26 +7,65 @@
 
 ## Table of Contents
 
-1. [Why Iceberg? (vs Hive Format)](#1-why-iceberg-vs-hive-format)
-2. [Iceberg Metadata Architecture](#2-iceberg-metadata-architecture)
-3. [Hidden Partitioning](#3-hidden-partitioning)
-   - [Problems with Hive Partitioning](#problems-with-hive-partitioning)
-   - [Partition Transforms](#partition-transforms)
-    - [Write Path & Read Path](#write-path-read-path)
-   - [Partition Evolution](#partition-evolution)
-   - [Buckets vs Identity](#buckets-vs-identity)
-   - [Common Mistakes](#common-mistakes)
-4. [Row-Level Updates: CoW vs MoR](#4-row-level-updates-cow-vs-mor)
-   - [Delete File Types](#delete-file-types)
-5. [Time Travel & Snapshot Cleanup](#5-time-travel-snapshot-cleanup)
-6. [ACID Commits & Concurrent Writers](#6-acid-commits-concurrent-writers)
-7. [Schema Evolution & Field IDs](#7-schema-evolution-field-ids)
-8. [Operational Maintenance Playbook](#8-operational-maintenance-playbook)
-9. [Quick Reference Cheatsheet](#9-quick-reference-cheatsheet)
+1. [The Opening Question](#1-the-opening-question)
+2. [Why Iceberg? (vs Hive Format)](#2-why-iceberg-vs-hive-format)
+3. [Iceberg Metadata Architecture](#3-iceberg-metadata-architecture)
+4. [Hidden Partitioning](#4-hidden-partitioning)
+5. [Row-Level Updates: CoW vs MoR](#5-row-level-updates-cow-vs-mor)
+6. [Time Travel & Snapshot Cleanup](#6-time-travel-snapshot-cleanup)
+7. [ACID Commits & Concurrent Writers](#7-acid-commits-concurrent-writers)
+8. [Schema Evolution & Field IDs](#8-schema-evolution-field-ids)
+9. [Real Interview Questions](#9-real-interview-questions)
+10. [Decision Trees](#10-decision-trees)
+11. [Operational Maintenance Playbook](#11-operational-maintenance-playbook)
+12. [Quick Reference — Interview Edition](#12-quick-reference--interview-edition)
+13. [Resources](#13-resources)
 
 ---
 
-## 1. Why Iceberg? (vs Hive Format)
+## 1. The Opening Question
+
+**Question:** *"Your company has 2 PB of data on S3 queried by Spark, Trino, and Snowflake. The Hive metastore is the bottleneck and a crashed job just corrupted a table again. Design the target state."*
+
+```mermaid
+flowchart LR
+    subgraph Before["Before: Hive on S3"]
+        H1["Directories = tables<br/>LIST calls on every query"]
+        H2["No ACID: crashed job<br/>= partial files in place"]
+        H3["Schema change =<br/>rewrite or corruption"]
+        H4["dt column must be<br/>in every WHERE clause"]
+    end
+
+    subgraph After["After: Iceberg on S3"]
+        I1["Catalog pointer → metadata JSON<br/>No LIST calls — file-level index"]
+        I2["ACID: atomic pointer swap<br/>crashed job = orphan files, clean later"]
+        I3["Schema evolution via field IDs<br/>rename/reorder = metadata-only"]
+        I4["Hidden partitioning<br/>days(event_time) prunes automatically"]
+    end
+
+    Before -->|"migrate"| After
+
+    subgraph Engines["Same table, three engines"]
+        E1["Spark: batch ETL"]
+        E2["Trino: interactive BI"]
+        E3["Snowflake: external catalog<br/>(read Iceberg tables)"]
+    end
+
+    After --> Engines
+```
+
+**Answer structure:**
+```
+1. Table format (Iceberg) decouples the table from the engine and
+   from the directory layout — the metadata tree is the table
+2. One copy of data, three engines reading it, no format lock-in
+3. ACID via catalog CAS — crashes leave orphans, never corruption
+4. Migration path: shadow table + backfill + cutover (see Q6)
+```
+
+---
+
+## 2. Why Iceberg? (vs Hive Format)
 
 ### The Core Problem with Hive
 
@@ -52,7 +91,7 @@ Iceberg tracks every data file at the metadata layer. This enables:
 
 ---
 
-## 2. Iceberg Metadata Architecture
+## 3. Iceberg Metadata Architecture
 
 When Spark/Trino reads an Iceberg table, it traverses a **4-tier metadata tree**:
 
@@ -86,7 +125,7 @@ This is far more powerful than Hive's directory listing approach.
 
 ---
 
-## 3. Hidden Partitioning
+## 4. Hidden Partitioning
 
 ### Problems with Hive Partitioning
 
@@ -264,7 +303,7 @@ Always ask: *"What does 90% of my WHERE clause look like?"* — partition for th
 
 ---
 
-## 4. Row-Level Updates: CoW vs MoR
+## 5. Row-Level Updates: CoW vs MoR
 
 Iceberg supports two strategies for `UPDATE` and `DELETE`. Choose based on read/write ratio.
 
@@ -301,7 +340,7 @@ CALL catalog.system.rewrite_data_files(
 
 ---
 
-## 5. Time Travel & Snapshot Cleanup
+## 6. Time Travel & Snapshot Cleanup
 
 Every write operation creates an immutable **Snapshot**. Old snapshots and their data files are retained until explicitly expired.
 
@@ -337,7 +376,7 @@ CALL catalog.system.remove_orphan_files(table => 'my_db.events');
 
 ---
 
-## 6. ACID Commits & Concurrent Writers
+## 7. ACID Commits & Concurrent Writers
 
 **Alex:** In interviews, people say Iceberg has ACID transactions on S3. But S3 does not support atomic directory rename like HDFS. What is actually atomic?
 
@@ -371,7 +410,7 @@ sequenceDiagram
 
 ---
 
-## 7. Schema Evolution & Field IDs
+## 8. Schema Evolution & Field IDs
 
 **Alex:** Why is Iceberg safer than Hive for schema changes?
 
@@ -402,7 +441,228 @@ ALTER TABLE events ALTER COLUMN amount TYPE DECIMAL(18, 2);
 
 ---
 
-## 8. Operational Maintenance Playbook
+## 9. Real Interview Questions
+
+### Q1: "Iceberg vs Delta Lake vs Hudi — how do you choose?"
+
+| Dimension | Iceberg | Delta Lake | Hudi |
+|---|---|---|---|
+| **Engine neutrality** | Best-in-class: Spark, Trino, Flink, Snowflake, BigQuery read the same table | Databricks-first; open-source Delta lags on non-Spark engines | Spark/Flink-first; Trino support weaker |
+| **Metadata design** | Manifest tree (Avro) — engine-agnostic spec | Transaction log (`_delta_log` JSON) | Timeline-based metadata |
+| **Partition evolution** | Yes, first-class (spec IDs) | No — change partitioning = rewrite | No |
+| **Hidden partitioning** | Yes (transforms) | No (partition columns, but generated columns help) | No |
+| **Streaming upserts** | Good (MoR + Flink) | Good (MERGE) | Best-in-class (built for CDC upserts) |
+| **Vendor momentum** | Snowflake, Databricks (UniForm), Tabular, AWS | Databricks | Onehouse |
+
+**Interview answer:** "Iceberg when engine neutrality matters — multiple
+engines, avoiding lock-in, partition evolution. Delta when you're
+all-in Databricks. Hudi when the primary workload is high-frequency
+CDC upserts and the team already runs it. In 2026 the default for a
+new multi-engine lakehouse is Iceberg."
+
+### Q2: "Your Iceberg table has 50,000 small files after 3 months of streaming. Queries take 10 minutes. Diagnose and fix."
+
+```mermaid
+flowchart TD
+    SLOW["10-minute queries"]
+    SLOW --> D1["Diagnosis 1: planning slow?<br/>EXPLAIN shows minutes in<br/>'planning' phase → manifest<br/>explosion → rewrite_manifests"]
+    SLOW --> D2["Diagnosis 2: scan slow?<br/>50K files × S3 GET latency<br/>→ rewrite_data_files (binpack)"]
+    SLOW --> D3["Diagnosis 3: MoR deletes<br/>accumulated → merge cost at<br/>read → rewrite_data_files<br/>applies deletes"]
+
+    D1 --> F["Fix chain:"]
+    D2 --> F
+    D3 --> F
+    F --> F1["1. CALL system.rewrite_data_files<br/>(target 256-512 MB files)"]
+    F1 --> F2["2. CALL system.rewrite_manifests<br/>(collapse manifest tree)"]
+    F2 --> F3["3. Schedule BOTH as recurring jobs<br/>— streaming without scheduled<br/>compaction ALWAYS ends here"]
+    F3 --> F4["4. Root-cause: reduce write<br/>frequency or increase<br/>write.batch.size upstream"]
+```
+
+### Q3: "Two Spark jobs write to the same Iceberg table at the same time. Job A appends, Job B deletes. What happens?"
+
+```mermaid
+sequenceDiagram
+    participant A as Job A (append)
+    participant B as Job B (delete)
+    participant C as Catalog
+
+    A->>A: Read snapshot S1, write files
+    B->>B: Read snapshot S1, write delete files
+    A->>C: CAS: S1 → S2 (append)
+    C-->>A: ✓ Commit success
+    B->>C: CAS: S1 → S2 (delete)
+    C-->>B: ✗ Conflict — pointer is S2 now
+    B->>B: Refresh to S2, re-validate:<br/>do my deletes still apply to<br/>files untouched by A's append?
+    alt No overlap (A appended new files,<br/>B deleted old rows)
+        B->>C: CAS: S2 → S3 (rebased)
+        C-->>B: ✓ Commit success
+    else Overlap (A rewrote files B targeted)
+        B->>B: Retry whole write<br/>or fail after max retries
+    end
+```
+
+**Key:** Iceberg's optimistic concurrency does **conflict detection at
+the file level**, not row level. Non-overlapping writes can both
+succeed after rebase; overlapping writes retry. No locks, no blocking —
+which is why it scales on S3.
+
+### Q4: "GDPR request: delete all data for customer 42 across your lake. Tables are Iceberg on S3. Walk through it."
+
+```
+1. Identify tables with customer data (data catalog / lineage scan)
+
+2. Delete at the format level per table:
+   DELETE FROM table WHERE customer_id = 42;
+   → MoR: writes equality delete files (fast, logical delete)
+   → CoW: rewrites affected data files (slow, physical delete)
+
+3. GDPR requires PHYSICAL deletion — MoR delete files are not enough:
+   → run rewrite_data_files to materialize deletes into clean files
+   → run expire_snapshots with older_than < request_date
+     (old snapshots still contain the customer's data!)
+   → run remove_orphan_files to drop unreferenced files
+
+4. Verify: query all snapshots history; confirm files physically gone
+   (orphan check + S3 prefix audit)
+
+5. Watch out: derived tables, cached query results, and
+   BI extracts also contain the data — lineage matters
+```
+
+**Interview trap:** "We ran DELETE, we're compliant." — No. Snapshots
+retain the data until expired. Time travel and GDPR are in tension:
+**your snapshot retention window is your maximum deletion latency.**
+
+### Q5: "A Flink job commits to Iceberg every 30 seconds. After 2 weeks, query planning takes 40 seconds. Why, and fix?"
+
+```
+Math:
+  30s per commit × 2 commits/min × 60 × 24 × 14 days
+  = 40,320 snapshots
+  Each snapshot = 1 manifest list + manifests
+  → 40K+ metadata files; planner walks the tree per query
+
+Fix (in order):
+1. expire_snapshots(older_than => 7 days, retain_last => 10)
+   → drops old manifest lists; planning time collapses
+2. rewrite_manifests → compact surviving manifests
+3. Reduce commit cadence upstream:
+   checkpoint interval 30s → 5min (600 snapshots/day not 2,880)
+   (trade: recovery granularity)
+4. Set table properties so retention is automatic:
+   'history.expire.max-snapshot-age-ms' = '604800000'  -- 7 days
+   'history.expire.min-snapshots-to-keep' = '10'
+```
+
+### Q6: "Migrate a 500 TB Hive table to Iceberg with zero downtime. Plan?"
+
+```mermaid
+flowchart TD
+    P1["Phase 1: Shadow table<br/>CREATE TABLE events_iceberg<br/>USING iceberg AS SELECT from hive<br/>LIMIT 0 (schema only)"]
+    P1 --> P2["Phase 2: Historical backfill<br/>Spark job copies 500 TB<br/>partition-by-partition, validating<br/>row counts + checksums"]
+    P2 --> P3["Phase 3: Dual-write<br/>ETL writes to BOTH hive + iceberg<br/>for new data (1-2 weeks)"]
+    P3 --> P4["Phase 4: Validation<br/>Compare query results hive vs iceberg<br/>(revenue queries first)"]
+    P4 --> P5["Phase 5: Cutover<br/>Point BI/ETL readers to iceberg<br/>Keep hive read-only as fallback"]
+    P5 --> P6["Phase 6: Decommission<br/>After 30 days clean, drop hive table<br/>(files still on S3 — delete via lifecycle)"]
+```
+
+**Alternative for brave teams:** in-place migration (`migrate` Spark
+procedure converts Hive → Iceberg by registering existing files in
+Iceberg metadata — no data copy). Fast but: no re-layout, old files
+keep Hive partitioning semantics, and rollback is painful. Use shadow
+migration for anything business-critical.
+
+### Q7: "Same query runs slower on Iceberg than on the old Hive table. Both on S3, same files. Why?"
+
+**Likely causes:**
+1. **Planning overhead:** Hive's metastore partition pruning was fast
+   because the table had few partitions; Iceberg's manifest tree walk
+   (S3 GETs per manifest) is slower for tables with many manifests
+   → `rewrite_manifests`
+2. **Stats missing:** Iceberg relies on column metrics in manifests;
+   if written without metrics (`write.metadata.metrics`), the engine
+   can't prune → rewrite with metrics enabled
+3. **File sizes:** the migration preserved 10 MB files from the Hive
+   layout; Hive's input format amortized differently → `rewrite_data_files`
+4. **Engine integration:** older Trino/Spark versions have weaker
+   Iceberg pushdown than Hive pushdown → upgrade; review the engine's
+   Iceberg connector tuning docs for planning-time parallelism options
+
+### Q8: "CDC pipeline: source adds a column mid-stream. Downstream Iceberg table, Spark structured streaming job. What breaks?"
+
+**Answer:**
+```
+Avro source (registry) + Iceberg sink — the good path:
+1. Registry adds field with default → BACKWARD compatible ✓
+2. Spark schema evolves on read (reader schema from catalog)
+3. Iceberg: ALTER TABLE ADD COLUMN → new field ID, metadata-only
+4. Old files: new column reads as NULL (or default) ✓
+5. New files: written with the new column ✓
+   → Zero downtime. This is why people choose this stack.
+
+JSON source (schema-on-read) — the fragile path:
+1. New field appears in some records
+2. Spark infers schema from sample → inconsistent types
+   (first seen as long, later as double → cast failures)
+3. Iceberg rejects commit on schema mismatch (if not auto-evolving)
+4. Job fails → manual ALTER TABLE → restart
+   → The failure mode is silent schema inference, not Iceberg.
+```
+
+### Q9: "REST catalog vs Hive Metastore vs AWS Glue for Iceberg — which catalog and why?"
+
+| Catalog | Pros | Cons | Best for |
+|---|---|---|---|
+| **Hive Metastore** | Works everywhere, battle-tested | HMS scaling limits, single point, versioned API friction | Existing Hive estates |
+| **AWS Glue** | Managed, IAM integration, no ops | AWS-only, throttling at high TPS, slow metadata at scale | AWS-centric shops |
+| **REST catalog** | Decoupled, versioned API, multi-engine clean | You run the service (or use Tabular/Polaris) | Multi-engine, multi-cloud |
+| **Nessie** | Git-like branching of tables (!) | Extra infra, niche | Experiment isolation, data-as-code |
+| **JDBC catalog** | Simple, any RDBMS | Row-level locking limits concurrency | Small deployments |
+
+**Interview answer:** "The catalog is just the CAS pointer store.
+Glue for AWS-only, REST (Polaris/Tabular/Gravitino) for multi-engine
+futures, HMS only if you're already there. The important interview
+point: **catalog choice doesn't change the data layout — you can swap
+catalogs without touching files.**"
+
+---
+
+## 10. Decision Trees
+
+### 10.1 CoW vs MoR Selection
+
+```mermaid
+flowchart TD
+    START["Write pattern?"]
+    START -->|"Batch, daily/hourly<br/>read-heavy analytics"| COW["Copy-on-Write<br/>(default)"]
+    START -->|"Streaming CDC<br/>upserts every minute"| MOR["Merge-on-Read<br/>+ scheduled compaction"]
+    START -->|"Mixed: bulk loads +<br/>occasional corrections"| COW2["CoW for loads,<br/>accept MoR delete files<br/>for corrections, compact weekly"]
+
+    MOR --> DT{"Delete type?"}
+    DT -->|"Streaming, high throughput<br/>(knows key values, not positions)"| EQ["Equality deletes<br/>(fast write, slower read)"]
+    DT -->|"Batch deletes<br/>(positions resolvable)"| POS["Position deletes<br/>(fast read)"]
+```
+
+### 10.2 Partition Transform Selection
+
+```mermaid
+flowchart TD
+    START["What does 90% of WHERE<br/>clauses filter on?"]
+    START -->|"event_time / created_at"| TIME{"Query range?"}
+    START -->|"join keys<br/>(user_id, order_id)"| BUCKET["bucket(N, key)<br/>N = 16-128 typical"]
+    START -->|"low-cardinality dims<br/>(country, status, type)"| ID["identity(col)<br/>only if < ~100 distinct values"]
+
+    TIME -->|"hours"| H["hours(ts)"]
+    TIME -->|"days (most common)"| D["days(ts)"]
+    TIME -->|"months (archive)"| M["months(ts)"]
+
+    BUCKET --> SIZE{"File size check"}
+    SIZE -->|"< 128 MB/file<br/>post-partition"| FEWER["Reduce N —<br/>tiny files hurt more<br/>than hot buckets"]
+```
+
+---
+
+## 11. Operational Maintenance Playbook
 
 **Alex:** What production jobs should I run for Iceberg tables?
 
@@ -433,50 +693,32 @@ flowchart TD
 
 ---
 
-## 9. Quick Reference Cheatsheet
+## 12. Quick Reference — Interview Edition
 
-```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                   ICEBERG INTERVIEW CHEATSHEET                          │
-├──────────────────────┬──────────────────────────────────────────────────┤
-│ CONCEPT              │ KEY POINT                                        │
-├──────────────────────┼──────────────────────────────────────────────────┤
-│ Metadata tree        │ Catalog → Metadata JSON → Manifest List          │
-│                      │ → Manifest Files → Data Files                   │
-├──────────────────────┼──────────────────────────────────────────────────┤
-│ Hidden partitioning  │ Transform (days/hours/bucket) applied at write;  │
-│                      │ auto-pruned at read. User writes normal SQL.     │
-├──────────────────────┼──────────────────────────────────────────────────┤
-│ Partition evolution  │ ALTER TABLE to change spec; zero data rewrite;   │
-│                      │ old+new specs coexist via Spec ID in manifest.   │
-├──────────────────────┼──────────────────────────────────────────────────┤
-│ CoW                  │ Rewrites file on update. Slow writes, fast reads.│
-│ MoR                  │ Appends delete files. Fast writes, slower reads. │
-├──────────────────────┼──────────────────────────────────────────────────┤
-│ Delete file types    │ Position: row_pos anti-join (fast read)          │
-│                      │ Equality: col-val filter scan (fast write)       │
-├──────────────────────┼──────────────────────────────────────────────────┤
-│ Time travel          │ FOR SYSTEM_AS_OF '<timestamp>'                   │
-│ Snapshot cleanup     │ expire_snapshots() + remove_orphan_files()       │
-├──────────────────────┼──────────────────────────────────────────────────┤
-│ ACID commits         │ Atomic catalog pointer swap to new metadata JSON │
-│ Concurrency          │ Optimistic commit; refresh/retry on conflicts    │
-├──────────────────────┼──────────────────────────────────────────────────┤
-│ Schema evolution     │ Stable field IDs make rename/reorder safe        │
-│                      │ Re-added same-name column gets a new field ID    │
-├──────────────────────┼──────────────────────────────────────────────────┤
-│ Compaction           │ rewrite_data_files() → merges small files +      │
-│                      │ applies delete files for clean CoW reads.        │
-├──────────────────────┼──────────────────────────────────────────────────┤
-│ Partition anti-patt  │ identity() on high-cardinality → explosion       │
-│                      │ Over-partitioning → small files, slow planning   │
-│                      │ Partitioning misaligned with query access pattern │
-└──────────────────────┴──────────────────────────────────────────────────┘
-```
+| Question | Short Answer |
+|---|---|
+| **Iceberg in one line?** | Table = canonical list of files in metadata, not a directory — ACID, time travel, evolution on object storage |
+| **Metadata tree?** | Catalog → metadata.json → manifest list → manifest files → data files |
+| **What's atomic in a commit?** | Catalog pointer CAS swap to new metadata.json. Files written first, pointer last |
+| **Crashed writer?** | Orphan files (invisible, pointer never moved) — clean with `remove_orphan_files` |
+| **Concurrent writers?** | Optimistic: CAS fails → refresh → rebase → retry. File-level conflict detection |
+| **Hidden partitioning?** | Transform on existing column (days/hours/bucket); pruning automatic; no redundant `dt` column |
+| **Partition evolution?** | ALTER TABLE spec change; zero rewrite; old/new specs coexist via spec ID in manifests |
+| **identity() on user_id?** | Never — high cardinality → partition explosion. Use `bucket(N, col)` |
+| **CoW vs MoR?** | CoW: rewrite files (slow write, fast read). MoR: delete files (fast write, merge at read) — compact regularly |
+| **Position vs equality deletes?** | Position: (file, row) pairs — fast read. Equality: (col=val) — fast write, ideal for streaming CDC |
+| **Time travel?** | `FOR SYSTEM_TIME AS OF '...'` or `VERSION AS OF <snapshot_id>` |
+| **Snapshot explosion?** | Streaming commits every 30s = 40K snapshots/2wks → planning crawls. `expire_snapshots` + longer checkpoint interval |
+| **Small files after streaming?** | `rewrite_data_files` (binpack to 256-512 MB) + `rewrite_manifests` — schedule both |
+| **Schema rename safe?** | Yes — field IDs, not names/positions. Re-added same-name column = NEW field ID |
+| **GDPR delete on MoR?** | DELETE is logical until compaction. Physical deletion needs rewrite + expire_snapshots + remove_orphan_files |
+| **Iceberg vs Delta vs Hudi?** | Iceberg: engine neutrality + partition evolution. Delta: Databricks. Hudi: CDC upsert-heavy |
+| **Catalog swap cost?** | Low — catalog only stores the pointer; metadata.json lives with the data files |
+| **Hive migration?** | Shadow table + backfill + dual-write + validate + cutover (safe) or in-place `migrate` (fast, keeps old layout) |
 
 ---
 
-## Resources
+## 13. Resources
 
 - [Apache Iceberg Official Docs](https://iceberg.apache.org/docs/latest/)
 - [Iceberg Table Spec (deep internals)](https://iceberg.apache.org/spec/)
