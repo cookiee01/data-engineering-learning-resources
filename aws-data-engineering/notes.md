@@ -5,12 +5,12 @@
 ## Contents
 
 1. [The AWS Data Stack](#1-the-aws-data-stack)
-2. [S3 — The Foundation](#2-s3--the-foundation)
-3. [Glue — Serverless ETL and Catalog](#3-glue--serverless-etl-and-catalog)
-4. [EMR — Spark on AWS](#4-emr--spark-on-aws)
-5. [Redshift — MPP Data Warehousing](#5-redshift--mpp-data-warehousing)
-6. [Lambda and Step Functions — Serverless Orchestration](#6-lambda-and-step-functions--serverless-orchestration)
-7. [Kinesis — Streaming Data](#7-kinesis--streaming-data)
+2. [S3 — The Foundation](#2-s3-the-foundation)
+3. [Glue — Serverless ETL and Catalog](#3-glue-serverless-etl-and-catalog)
+4. [EMR — Spark on AWS](#4-emr-spark-on-aws)
+5. [Redshift — MPP Data Warehousing](#5-redshift-mpp-data-warehousing)
+6. [Lambda and Step Functions — Serverless Orchestration](#6-lambda-and-step-functions-serverless-orchestration)
+7. [Kinesis — Streaming Data](#7-kinesis-streaming-data)
 8. [IAM Patterns for Data Pipelines](#8-iam-patterns-for-data-pipelines)
 9. [Cost Optimization](#9-cost-optimization)
 10. [Architecture Patterns](#10-architecture-patterns)

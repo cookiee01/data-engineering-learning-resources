@@ -4,7 +4,7 @@
 
 ## Contents
 
-1. [Architecture — Storage and Compute Separation](#1-architecture--storage-and-compute-separation)
+1. [Architecture — Storage and Compute Separation](#1-architecture-storage-and-compute-separation)
 2. [Virtual Warehouses](#2-virtual-warehouses)
 3. [Micro-Partitions and Clustering](#3-micro-partitions-and-clustering)
 4. [Time Travel and Fail-Safe](#4-time-travel-and-fail-safe)

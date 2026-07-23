@@ -5,14 +5,14 @@
 ## Contents
 
 1. [Why This Matters](#1-why-this-matters)
-2. [Project Packaging — pyproject.toml and Friends](#2-project-packaging--pyprojecttoml-and-friends)
-3. [Package Managers — pip, Poetry, uv, and the Rest](#3-package-managers--pip-poetry-uv-and-the-rest)
+2. [Project Packaging — pyproject.toml and Friends](#2-project-packaging-pyprojecttoml-and-friends)
+3. [Package Managers — pip, Poetry, uv, and the Rest](#3-package-managers-pip-poetry-uv-and-the-rest)
 4. [Dependency Management Purgatory](#4-dependency-management-purgatory)
-5. [Versioning — SemVer, PEP 440, and CalVer](#5-versioning--semver-pep-440-and-calver)
+5. [Versioning — SemVer, PEP 440, and CalVer](#5-versioning-semver-pep-440-and-calver)
 6. [Build and Deploy](#6-build-and-deploy)
-7. [Code Quality — Ruff, Mypy, Pytest, Pre-Commit](#7-code-quality--ruff-mypy-pytest-pre-commit)
-8. [Python Runtime — Which Python, Where, and How](#8-python-runtime--which-python-where-and-how)
-9. [Enterprise Tooling — Private PyPI, Scanning, Caching](#9-enterprise-tooling--private-pypi-scanning-caching)
+7. [Code Quality — Ruff, Mypy, Pytest, Pre-Commit](#7-code-quality-ruff-mypy-pytest-pre-commit)
+8. [Python Runtime — Which Python, Where, and How](#8-python-runtime-which-python-where-and-how)
+9. [Enterprise Tooling — Private PyPI, Scanning, Caching](#9-enterprise-tooling-private-pypi-scanning-caching)
 10. [Quick-Reference Cheatsheet](#10-quick-reference-cheatsheet)
 
 ---

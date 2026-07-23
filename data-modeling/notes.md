@@ -11,7 +11,7 @@
 5. [Dimension Tables](#5-dimension-tables)
 6. [Slowly Changing Dimensions (SCD)](#6-slowly-changing-dimensions-scd)
 7. [Kimball vs Inmon vs Data Vault](#7-kimball-vs-inmon-vs-data-vault)
-8. [Grain — The Most Important Decision](#8-grain--the-most-important-decision)
+8. [Grain — The Most Important Decision](#8-grain-the-most-important-decision)
 9. [Interview Cheatsheet](#9-interview-cheatsheet)
 
 ---

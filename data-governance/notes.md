@@ -5,7 +5,7 @@
 ## Contents
 
 1. [Why Governance Matters Now](#1-why-governance-matters-now)
-2. [Data Catalog — Unity Catalog, Polaris, DataHub](#2-data-catalog--unity-catalog-polaris-datahub)
+2. [Data Catalog — Unity Catalog, Polaris, DataHub](#2-data-catalog-unity-catalog-polaris-datahub)
 3. [Data Lineage](#3-data-lineage)
 4. [Data Quality Frameworks](#4-data-quality-frameworks)
 5. [Data Contracts](#5-data-contracts)

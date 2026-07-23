@@ -5,13 +5,13 @@
 ## Contents
 
 1. [What dbt Is and Why It Exists](#1-what-dbt-is-and-why-it-exists)
-2. [Core Concepts — Models, Sources, Tests](#2-core-concepts--models-sources-tests)
+2. [Core Concepts — Models, Sources, Tests](#2-core-concepts-models-sources-tests)
 3. [Materializations](#3-materializations)
 4. [Jinja and Macros](#4-jinja-and-macros)
 5. [Testing and Documentation](#5-testing-and-documentation)
 6. [Incremental Models](#6-incremental-models)
 7. [CI/CD with dbt](#7-cicd-with-dbt)
-8. [dbt + Snowflake / Databricks](#8-dbt--snowflake--databricks)
+8. [dbt + Snowflake / Databricks](#8-dbt-snowflake-databricks)
 9. [Interview Cheatsheet](#9-interview-cheatsheet)
 
 ---

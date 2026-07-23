@@ -6,7 +6,7 @@
 
 1. [Query Execution Order](#1-query-execution-order)
 2. [Window Functions](#2-window-functions)
-3. [Joins — Types, Performance, and Traps](#3-joins--types-performance-and-traps)
+3. [Joins — Types, Performance, and Traps](#3-joins-types-performance-and-traps)
 4. [CTEs and Recursive Queries](#4-ctes-and-recursive-queries)
 5. [Aggregation Nuances](#5-aggregation-nuances)
 6. [Query Performance and Execution Plans](#6-query-performance-and-execution-plans)
