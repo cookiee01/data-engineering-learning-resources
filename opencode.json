@@ -6,7 +6,7 @@
       "description": "Use for: improving data engineering learning notes, expanding thin sections, adding Mermaid diagrams, updating versions, fixing cross-references, syncing quiz app, checking consistency. Use ONLY when the user asks to improve the repo or its content.",
       "mode": "subagent",
       "model": "max",
-      "permission": { "edit": "allow", "bash": "allow" }
+      "permission": { "edit": "allow", "bash": "allow", "skill": "allow" }
     }
   }
 }
