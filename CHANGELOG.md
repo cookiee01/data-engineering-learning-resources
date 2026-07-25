@@ -28,6 +28,7 @@ The format is based on Keep a Changelog.
 
 ### Changed
 - Updated cross-references to sibling repo: renamed from `data-engineering-staff-learning-plan` → `data-engineering-learning-lab` in Flink setup guide and notes
+- Rewrote `dbt/notes.md` from 422 lines to 1025 lines — interview-centric deep dive: opening production scenario, core internals (compilation pipeline, manifest.json, ref() resolution), 10 real interview Qs with diagnosis, decision trees (materialization selection, incremental strategy, slow-dbt debug flow), and quick reference table
 - Sibling repo (`data-engineering-learning-lab`): complete cleanup for public sharing — git history rewritten, personal info removed, "staff" language replaced, .env extraction, language fixes
 
 ### Changed

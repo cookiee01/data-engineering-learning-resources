@@ -27,7 +27,7 @@ This is the navigation hub for the repo.
 - Data Modeling
   - `data-modeling/notes.md` (star schema, fact types, dimension types, SCD 0–6, Kimball vs Inmon vs Data Vault, grain)
 - dbt
-  - `dbt/notes.md` (models, sources, tests, materializations, Jinja, incremental, CI/CD, Snowflake/Databricks patterns)
+  - `dbt/notes.md` (internals, materializations, Jinja, incremental, CI/CD, 10 interview Qs, decision trees, quick reference)
 - Snowflake
   - `snowflake/notes.md` (architecture, virtual warehouses, micro-partitions, clustering, time travel, zero-copy clone, cost management, Snowpipe, streams/tasks)
 - EMR / Hadoop
