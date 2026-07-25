@@ -1,7 +1,6 @@
 # Apache Iceberg — Interview Prep Notes
 
-> Format: Senior DE (Alex) ↔ Staff DE (Sam) conversation series.
-> Goal: Deep understanding for production use and senior/staff-level interviews.
+> Format: Alex (learner) ↔ Sam (guide) conversation series designed to build production-grade intuition.
 
 ---
 
@@ -28,30 +27,30 @@
 **Question:** *"Your company has 2 PB of data on S3 queried by Spark, Trino, and Snowflake. The Hive metastore is the bottleneck and a crashed job just corrupted a table again. Design the target state."*
 
 ```mermaid
+flowchart TD
+    Hive -->|migrate| Iceberg
+
+    subgraph Hive["Hive Table"]
+        H1["O(N) LIST calls per query — slow at scale"]
+        H2["Crash mid-write = partial files in place"]
+        H3["Rename column → rewrite all data"]
+        H4["User must hardcode partition in WHERE"]
+    end
+
+    subgraph Iceberg["Iceberg Table"]
+        I1["O(1) catalog lookup → metadata index"]
+        I2["Atomic pointer swap = clean abort or commit"]
+        I3["Rename = update field ID in metadata.json"]
+        I4["Automatic pruning via partition transforms"]
+    end
+```
+
+```mermaid
 flowchart LR
-    subgraph Before["Before: Hive on S3"]
-        H1["Directories = tables<br/>LIST calls on every query"]
-        H2["No ACID: crashed job<br/>= partial files in place"]
-        H3["Schema change =<br/>rewrite or corruption"]
-        H4["dt column must be<br/>in every WHERE clause"]
-    end
-
-    subgraph After["After: Iceberg on S3"]
-        I1["Catalog pointer → metadata JSON<br/>No LIST calls — file-level index"]
-        I2["ACID: atomic pointer swap<br/>crashed job = orphan files, clean later"]
-        I3["Schema evolution via field IDs<br/>rename/reorder = metadata-only"]
-        I4["Hidden partitioning<br/>days(event_time) prunes automatically"]
-    end
-
-    Before -->|"migrate"| After
-
-    subgraph Engines["Same table, three engines"]
-        E1["Spark: batch ETL"]
-        E2["Trino: interactive BI"]
-        E3["Snowflake: external catalog<br/>(read Iceberg tables)"]
-    end
-
-    After --> Engines
+    Table["One Iceberg Table on S3"] --> Spark["Spark ETL"]
+    Table --> Trino["Trino Interactive"]
+    Table --> Snowflake["Snowflake External Table"]
+    Table --> Flink["Flink Streaming"]
 ```
 
 **Answer structure:**
@@ -81,6 +80,14 @@ In Hive, **the directory IS the table**. Files are discovered by listing directo
 ### Iceberg's Core Insight
 
 > **The table is defined by a canonical list of files, not a directory structure.**
+
+**Alex:** I keep hearing "table format." Isn't Parquet already a format?
+
+**Sam:** Parquet is the *file format* — it defines how rows are packed inside a single file. Iceberg is the *table format* — it defines how the collection of Parquet files is organized into a table. Think of Parquet as the page layout inside a book, and Iceberg as the book's table of contents + index + revision history. You can swap page layouts (Parquet ↔ ORC) and the table of contents still works.
+
+**Alex:** And the catalog? Hive has a metastore, Iceberg uses one too — what's different?
+
+**Sam:** The catalog is just a pointer store. It holds one thing: "this table's current metadata.json is at `s3://.../00002-metadata.json`." In Hive, the metastore also stores partition lists, file locations, statistics — the full inventory. Iceberg stores all that inside the metadata tree on S3. The catalog is thin. That's why you can swap from Hive Metastore to Glue to a REST catalog without touching a single data file. The table lives in the files, not in the catalog.
 
 Iceberg tracks every data file at the metadata layer. This enables:
 - ✅ Full ACID transactions (atomic commits via snapshot isolation)
@@ -115,6 +122,61 @@ graph TD
     style DF fill:#8b5cf6,color:#fff
 ```
 
+**What this looks like on S3 after one INSERT:**
+
+```
+s3://my-warehouse/events/
+├── metadata/
+│   ├── 00001-metadata.json              # schema, partition spec, list of snapshots
+│   ├── snap-8494399784576965614-manifest-list.avro  # current snapshot → its manifests
+│   ├── 00001-abcdef...-manifest.avro    # first write batch's manifest
+│   ├── 00002-123456...-manifest.avro    # second write batch's manifest
+│   └── version-hint.text                # tells the catalog which metadata.json is active
+└── data/
+    ├── event_time_day=20284/
+    │   └── 00001-....parquet
+    └── event_time_day=20285/
+        └── 00002-....parquet
+```
+
+**Alex:** So the `metadata/` directory IS the table? Without it, the Parquet files are just bytes?
+
+**Sam:** Exactly. The metadata tree is the table. The data directory only has value because the metadata knows how to find and interpret those files. That's why losing the metadata directory means losing the table — the connection between catalog pointer, manifest list, manifests, and files is severed.
+
+**Alex:** What does one entry in a manifest file look like? I want to understand how pruning works at the byte level.
+
+**Sam:** Each manifest entry is a row in an Avro file. Here's what one entry looks like conceptually. Take a file containing events for user_id range 1000-5000 on July 4-5, bucketed to partition 37:
+
+```
+Entry:
+  status: 1 (ADDED)
+  snapshot_id: 8494399784576965614
+  data_file:
+    content: 0 (DATA)
+    file_path: s3://.../data/event_time_day=20266/00001.parquet
+    file_format: PARQUET
+    partition: event_time_day=20266, user_id_bucket=37
+    record_count: 85000
+    file_size_in_bytes: 268435456    (256 MB)
+    column_sizes: {1: 120000, 2: 85000, 3: 65000}
+    value_counts: {1: 85000, 2: 85000, 3: 85000}
+    null_value_counts: {1: 0, 2: 0, 3: 120}
+    lower_bounds:
+      1: \x00\x00\x03\xe8   (user_id min = 1000, binary encoded)
+      2: \x00\x00\x00\x00   (event_time min, binary encoded)
+      3: \x40\x59\x00\x00   (amount min = 100.0, binary encoded)
+    upper_bounds:
+      1: \x00\x00\x13\x88   (user_id max = 5000)
+      2: \x00\x00\x00\x01   (event_time max)
+      3: \x40\x8f\x00\x00   (amount max = 255.0)
+```
+
+When a query filters `WHERE user_id = 42 AND amount > 1000.0`, the engine reads the upper_bounds for user_id (5000) and lower_bounds for amount (100.0). The file contains user_id up to 5000 but the query wants user_id 42 — lower_bounds[user_id] = 1000, so 42 is below the minimum. The file is pruned at the manifest level without reading a single byte of Parquet data. This is the entire point of the metadata tree.
+
+**Alex:** And the content field — 0 for data, 1 for position deletes, 2 for equality deletes?
+
+**Sam:** Right. In v2+ manifests, every file entry carries that `content` field. The engine sees `content: 0` and reads it normally. `content: 1` means apply position-level anti-join. `content: 2` means filter by column values from the equality delete file.
+
 **Why this matters for query planning:**
 
 A query engine uses the stats at each layer to **prune aggressively before reading any data**:
@@ -122,6 +184,71 @@ A query engine uses the stats at each layer to **prune aggressively before readi
 2. Manifest File stats → skip individual Parquet files whose column ranges don't overlap
 
 This is far more powerful than Hive's directory listing approach.
+
+### Concrete Query Trace
+
+Trace a query step-by-step through the 4-tier tree:
+
+```sql
+SELECT SUM(amount) FROM events
+WHERE event_time >= '2026-07-01' AND event_time < '2026-07-08';
+```
+
+```
+Step 1 — Catalog lookup (milliseconds):
+  Engine asks Glue catalog: "where is table events?"
+  Catalog returns: s3://warehouse/events/metadata/00001-metadata.json
+  (This is a single GetObject call — no listing)
+
+Step 2 — Read metadata.json (1 HTTP GET):
+  Engine reads 00001-metadata.json from S3
+  Finds:
+    current-snapshot-id: 8494399784576965614
+    snapshot location: metadata/snap-8494399784576965614-manifest-list.avro
+    partition spec: days(event_time), partition ID 0
+  (Still no file listing — one GET + one pointer)
+
+Step 3 — Read manifest list (1 HTTP GET):
+  Engine reads the Avro manifest list file
+  Finds 3 manifest entries, each with partition summary:
+
+  Manifest A: partition range [20266, 20273]   days since epoch = July 1-7
+  Manifest B: partition range [20250, 20265]   June 15-30
+  Manifest C: partition range [20274, 20284]   July 9-14
+
+Step 4 — Prune at manifest list level (zero data reads):
+  Query filter: days >= 20266 AND days < 20273
+  Manifest A: [20266, 20273] overlaps → INCLUDE
+  Manifest B: [20250, 20265] ends at 20265, filter starts at 20266 → SKIP
+  Manifest C: [20274, 20284] starts at 20274, filter ends at 20273 → SKIP
+
+Step 5 — Read included manifests (1 HTTP GET):
+  Engine fetches only Manifest A from S3
+  Contains 50 file entries with column-level stats.
+
+  Two entries that pass column pruning:
+    File 001: user_id min=1000, max=5000, amount min=0.0, max=500.0
+             event_time min=July 1, max=July 7 → INCLUDE
+    File 002: user_id min=42, max=42, amount min=250.0, max=250.0
+             event_time min=July 3, max=July 3 → INCLUDE
+
+Step 6 — Prune at manifest file level (column bounds):
+  48 of 50 files pruned because their amount or event_time bounds
+  don't overlap the query filter. Only 2 files remain.
+
+Step 7 — Read data files (2 Parquet GETs):
+  Engine fetches and scans only 2 Parquet files instead of 50.
+  Applies residual filter on amount, computes SUM.
+  Returns result.
+
+Total: 4 S3 GETs (catalog pointer, metadata.json, manifest list, 1 manifest)
+       + 2 Parquet reads = 6 network calls
+Instead of: 50+ Parquet reads + directory listing O(N) on S3
+```
+
+**Alex:** So the whole query spends 4 GETs on metadata and only 2 on data?
+
+**Sam:** For this case, yes. But the ratio depends on the table. If the partition range is wide (e.g., full table scan), you read all manifests and fewer files are pruned. If column stats are missing or coarsely truncated, pruning power drops. The key insight: Iceberg converts the O(N) listing problem into a controlled metadata walk that's limited by the manifest tree depth, not the file count.
 
 ---
 
@@ -338,6 +465,18 @@ CALL catalog.system.rewrite_data_files(
 );
 ```
 
+**Alex:** Walk me through the write amplification numbers. How bad is CoW in practice?
+
+**Sam:** Say 10,000 Parquet files, each 256 MB. An UPDATE touches rows in 500 of them. CoW reads all 500, filters out the affected rows into new files, writes 500 new files. That's 500 × 256 MB = 128 GB read and 128 GB written — just to update a few thousand rows.
+
+**Alex:** And MoR?
+
+**Sam:** MoR writes one position delete file with `(file_path, row_position)` pairs — typically a few KB. The original 500 data files are untouched. But every reader must now merge those data files with the delete file at read time, performing an anti-join on row positions. Fast write, slower read.
+
+**Alex:** And the delete file's `content` field — that's how the engine knows it's a delete file, not a data file?
+
+**Sam:** Yes. In v2 manifests, every file entry has a `content` field: 0 = DATA, 1 = POSITION DELETES, 2 = EQUALITY DELETES. The engine reads the manifest, sees `content = 1`, and knows to apply an anti-join. `content = 2` means filter by column values. Without that field, the engine wouldn't know how to interpret the file.
+
 ---
 
 ## 6. Time Travel & Snapshot Cleanup
@@ -356,6 +495,17 @@ SELECT * FROM events FOR VERSION AS OF 8494399784576965614;
 SELECT * FROM events.snapshots;
 ```
 
+```mermaid
+flowchart LR
+    S1["S1: parent none<br/>INSERT 1M rows"] --> S2["S2: parent S1<br/>INSERT 500K rows"]
+    S2 --> S3["S3: parent S2<br/>DELETE 100K rows"]
+    S3 --> S4["S4: parent S3<br/>INSERT 200K rows"]
+```
+
+**Alex:** Each snapshot is a full copy of the table?
+
+**Sam:** No — each snapshot is a complete *view* with its own manifest list, but data files are shared. S1 references files A, B, C. S2 adds D, E but still references A, B, C from its manifest list. Files are not duplicated. When you expire S1, A, B, C are not deleted — S2 still needs them. Physical deletion only happens when the *last* snapshot referencing a file is expired.
+
 **Expire old snapshots (run as a scheduled maintenance job):**
 ```sql
 -- Expire snapshots older than 7 days, keep at least 5 recent ones
@@ -367,6 +517,12 @@ CALL catalog.system.expire_snapshots(
 ```
 
 This physically **deletes orphaned Parquet files from S3** that are no longer referenced by any active snapshot. Without this, storage costs compound indefinitely.
+
+**Alex:** A Flink job commits every 30 seconds. After 7 days, what does expire_snapshots actually delete?
+
+**Sam:** 2 commits/min × 60 × 24 × 7 = 20,160 snapshots. expire_snapshots with `older_than = 7 days, retain_last = 10` removes all but the 10 most recent snapshots from metadata. Each removed snapshot's manifest list is deleted. Data files that were only referenced by those expired snapshots — files with `status = 1 (ADDED)` in a snapshot that is now gone, or files with `status = 2 (DELETED)` whose deletion snapshot is now gone — are physically deleted from S3. The actual `DELETE OBJECT` calls happen inside `expire_snapshots`.
+
+**Wait — if a query is reading a snapshot that's being expired, it breaks?** That's why you set `older_than` far enough back. A query using `FOR SYSTEM_TIME AS OF` will hold a reference to that snapshot. expire_snapshots only expires snapshots older than `older_than` — so if your longest query runs 1 hour, set `older_than` to at least `NOW() - 1 hour - buffer`.
 
 **Remove orphan files (safety net):**
 ```sql
@@ -400,6 +556,10 @@ sequenceDiagram
     end
 ```
 
+**Alex:** Walk me through the CAS mechanics. The catalog has a pointer to metadata/00001.json. What happens next?
+
+**Sam:** The writer records that pointer value at the start. It writes new files and produces a new metadata/00002.json. To commit, it tells the catalog: "atomically swap the pointer FROM metadata/00001.json TO metadata/00002.json, but ONLY if it still points at metadata/00001.json." If another writer already committed 00002, the CAS fails. The writer reads the new pointer, rebases its work, and retries. No locks. No S3 transaction. Just one atomic metadata operation in the catalog.
+
 **Alex:** So readers never see half-written files?
 
 **Sam:** Correct. Readers start from the catalog's current metadata pointer. Until the pointer changes, new files are invisible even if they already exist in S3. If a job crashes before commit, those files are orphan files and can be cleaned later.
@@ -426,6 +586,39 @@ flowchart LR
 **Alex:** Give me the interview answer for rename.
 
 **Sam:** In Hive-style tables, a rename can be ambiguous because readers may bind by name or position depending on file format and engine behavior. In Iceberg, `user_id` can be renamed to `customer_id` while keeping the same field ID. Old Parquet files do not need to be rewritten because the table metadata maps the current name to the same logical field.
+
+**Alex:** Show me what that looks like inside metadata.json.
+
+**Sam:** The metadata.json stores two things — the current schema and a schema history. When you rename:
+```json
+{
+  "schema-id": 1,
+  "schemas": [
+    {
+      "schema-id": 0,
+      "fields": [
+        {"id": 1, "name": "user_id",    "type": "long"},
+        {"id": 2, "name": "event_time", "type": "timestamp"},
+        {"id": 3, "name": "amount",     "type": "double"}
+      ]
+    },
+    {
+      "schema-id": 1,
+      "fields": [
+        {"id": 1, "name": "customer_id", "type": "long"}
+        {"id": 2, "name": "event_time",  "type": "timestamp"},
+        {"id": 3, "name": "amount",      "type": "double"}
+      ]                           
+    }
+  ],
+  "current-schema-id": 1
+}
+```
+Old Parquet files still have column `user_id` in their schema. But Iceberg knows field ID 1 was renamed. The reader sees the query references `customer_id` → finds field ID 1 in current schema → looks up field ID 1 in the old file → finds `user_id` with the same ID → reads it. Column name mismatch doesn't matter because the binding is by ID, not name.
+
+**Alex:** What about adding a column — do old files need to be rewritten to include it?
+
+**Sam:** No. Iceberg assigns a new field ID (e.g., 4 for `device_type`). Old files simply don't have a column with ID 4. At read time, the Iceberg reader sees that field ID 4 is missing in the old Parquet schema and returns NULL for every row. Zero bytes rewritten. New files will include the column. This is why Iceberg schema evolution is metadata-only — no backfill needed.
 
 **Safe evolution examples:**
 ```sql
@@ -690,6 +883,31 @@ flowchart TD
 **Alex:** What is the one-liner staff answer?
 
 **Sam:** Iceberg makes writes atomic through metadata commits, but production performance comes from maintenance: compact small files, rewrite manifests when planning slows, expire old snapshots based on retention policy, and remove orphan files after failed writes.
+
+**Alex:** Give me the cron schedule for a production streaming table.
+
+**Sam:** For a typical streaming table (Flink committing every 5 minutes):
+
+```
+Hourly:     rewrite_data_files(strategy='binpack', min-file-size=134217728)
+            → bin-packs files < 128 MB into 256-512 MB files
+
+Hourly:     rewrite_manifests()
+            → collapses the manifest tree after compaction
+
+Daily:      expire_snapshots(older_than=NOW() - 7 days, retain_last=5)
+            → deletes snapshots older than 7 days, keeps 5 most recent
+
+Daily:      remove_orphan_files()
+            → cleans up files from failed commits
+
+Table properties for automatic retention:
+  'history.expire.max-snapshot-age-ms'     = '604800000'  (7 days)
+  'history.expire.min-snapshots-to-keep'   = '10'
+  'write.metadata.metrics.default'         = 'truncate(16)'
+```
+
+Schedule compaction during low-traffic windows. The hourly slot keeps file sizes healthy for nightly batch reads. Expiration runs daily because it does S3 bulk deletes and can take minutes on large tables.
 
 ---
 

@@ -56,6 +56,7 @@ The format is based on Keep a Changelog.
 - Updated `README.md` with MkDocs usage instructions
 - Updated `.gitignore` to exclude `site/` directory
 - Added Apache Iceberg interview prep notes in `apache-iceberg/notes.md` — covers Iceberg vs Hive format, 4-tier metadata architecture (Catalog → Metadata JSON → Manifest List → Manifest Files → Data Files), hidden partitioning with all transforms (days/hours/months/years/bucket/truncate/identity), partition evolution, write + read path internals, Copy-on-Write vs Merge-on-Read strategies, delete file types (Position vs Equality), time travel queries, and snapshot/orphan file cleanup
+- Enhanced `apache-iceberg/notes.md`: fixed cramped opening diagram (split into two readable Mermaid charts), added foundational Alex↔Sam dialogue throughout (table-format vs file-format, CoW write amplification math, snapshot lineage, field ID walkthrough with metadata.json schema, manifest entry with concrete column stats, end-to-end 7-step query trace, scheduled maintenance playbook with cron example), removed staff-level references
 - Added Spark/PySpark revision channel in `apache-spark-pyspark/notes.md` (Afaque Ahmad YouTube)
 - Added Kafka resources in `apache-kafka/notes.md` (YouTube crash course and Hello Interview deep dive)
 - Added Flink setup notes: local Kafka -> Flink runbook in `apache-flink/kafka-to-flink-local-setup.md` (Docker-based initial setup, SQL, produce/verify, troubleshooting)
