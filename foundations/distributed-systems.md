@@ -544,7 +544,50 @@ requirements, quorum by consistency requirements.**
 
 ---
 
-## 9. Quick Reference — Interview Edition
+## 9. Decision Trees — Whiteboard for Interview
+
+### 9.1 Consistency Model Selection
+
+```mermaid
+flowchart TD
+    Q["Strong or eventual consistency<br/>for this use case?"]
+    Q --> REQ{"System requirement?"}
+
+    REQ -->|"Financial transaction<br/>inventory, leader election"| STRONG["Strong consistency<br/>Cost: 2-5x latency<br/>W+R > N, RF = f(tolerance)"]
+    REQ -->|"Dashboard, recommendations<br/>logs, analytics"| EVENTUAL["Eventual consistency<br/>Low latency, high avail<br/>W=1, R=1, tolerate partitions"]
+
+    STRONG --> CP{"Can system tolerate<br/>unavailability during<br/>partition?"}
+    CP -->|"Yes"| CP_OK["CP system: Kafka,<br/>ZooKeeper, etcd,<br/>Spanner, HBase"]
+    CP -->|"No"| CA_WARN["CA is impossible in<br/>distributed systems<br/>— network partitions happen"]
+
+    EVENTUAL --> AP{"Need conflict<br/>resolution?"}
+    AP -->|"Yes"| LWW["Last-write-wins (DynamoDB)<br/>or CRDTs (Riako)"]
+    AP -->|"No"| SIMPLE["Simple eventually consistent<br/>cache/CDN: just serve<br/>stale data"]
+```
+
+### 9.2 Exactly-Once Semantics Decision
+
+```mermaid
+flowchart TD
+    Q["Exactly-once semantics needed?"]
+    Q --> SOURCE{"Source supports<br/>idempotent replay?"}
+
+    SOURCE -->|"No (e.g., webhook,<br/>UDP, flaky API)"| AT_LEAST["At-least-once +<br/>dedup in sink or staging<br/>— the practical default"]
+
+    SOURCE -->|"Yes (Kafka with<br/>offset tracking)"| SINK{"Sink supports<br/>idempotent writes?"}
+
+    SINK -->|"No (append-only<br/>log, no UPSERT)"| SINK_AT_LEAST["At-least-once +<br/>dedup downstream<br/>when reading"]
+
+    SINK -->|"Yes (UPSERT,<br/>transactional DB)"| EXACTLY{"Checkpoint/transaction<br/>coordinator available?"}
+
+    EXACTLY -->|"Flink + 2PC sink"| E1["Flink exactly-once<br/>checkpoint + 2PC commit"]
+    EXACTLY -->|"Kafka producer<br/>idempotence"| E2["Kafka exactly-once<br/>enable.enable.idempotence=true<br/>+ acks=all"]
+    EXACTLY -->|"Spark + transactional<br/>sink"| E3["Spark Structured Streaming<br/>end-to-end exactly-once<br/>(checkpoint + idempotent)"]
+```
+
+---
+
+## 10. Quick Reference — Interview Edition
 
 | Question | Answer |
 |---|---|

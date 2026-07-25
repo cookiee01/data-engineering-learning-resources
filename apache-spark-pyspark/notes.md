@@ -1149,7 +1149,32 @@ flowchart TD
 
 ---
 
-## 20. Curated Resources
+## 20. Quick Reference — Interview Edition
+
+| Question | Short Answer |
+|---|---|
+| **What is a Spark job/stage/task?** | Job = action call. Stage = wide dependency boundary (shuffle). Task = partition × stage |
+| **How does Spark handle fault tolerance?** | Lineage recomputation (RDD DAG). No replication. Checkpoint truncates lineage for long chains |
+| **Shuffle in one sentence?** | Map writes sorted files to local disk → reduce fetches partitions across network → YARN external shuffle service keeps files alive for dynamic allocation |
+| **What does AQE do?** | Coalesces/ splits partitions at runtime based on shuffle statistics. Reduces manual `shuffle.partitions` tuning |
+| **Why is shuffle spill bad?** | Data written to disk (spill) then re-read = 10-100x slower than in-memory. Fix: more executor memory or off-heap overhead |
+| **Broadcast vs Sort-Merge join?** | BHJ: no shuffle if small table < 10 MB (autoBroadcastJoinThreshold). SMJ: default, sorts both sides, shuffles both |
+| **Skew in join?** | AQE skew split (if partition > 5× median). Or salt: key + random prefix → join → repair by dropping prefix |
+| **Skew in groupBy?** | Two-phase agg: salt → partial agg → unsalt → final agg. Or use `repartition()` with more partitions |
+| **Kryo vs Java serializer?** | Kryo: 10x faster, ~50% smaller, requires `registerKryoClasses`. Java: default, handles all classes, slow |
+| **Parquet + predicate pushdown?** | Footer stats → min/max per row group → ColumnIndex → page-level skipping. Only reads matching row groups |
+| **Small file problem?** | Too many files → excessive S3 LIST operations. Fix: coalesce before write, target 256 MB–1 GB per file |
+| **Dynamic allocation?** | `minExecutors` / `maxExecutors` executors; `executorIdleTimeout` (default 60s) releases idle ones |
+| **Spark on K8s vs YARN?** | K8s: pod-per-executor, CRD-based operator, no shuffle service. YARN: ExternalShuffleService, more mature scheduling |
+| **Cache vs checkpoint?** | Cache: lazy, kept in memory, lineage preserved. Checkpoint: eager, breaks lineage, writes to reliable storage |
+| **What is Tungsten?** | Off-heap memory management + cache-aware layout + codegen. Avoids JVM GC overhead for shuffle and aggregation |
+| **When to bucketing?** | Repeated joins on same key. Bucket once → zero-shuffle joins thereafter. Must sort within each bucket |
+| **Most expensive Spark operation?** | Shuffle (network I/O + serialization + disk spill). Minimize: bucketing, AQE, broadcast join |
+| **How to debug slow job?** | Spark UI → SQL tab → stage duration (longest stage) → shuffle spill → skew → GC time → S3 metrics |
+
+---
+
+## 21. Curated Resources
 
 ### Official Documentation
 - [Apache Spark Docs — Tuning](https://spark.apache.org/docs/latest/tuning.html) — start here for config reference

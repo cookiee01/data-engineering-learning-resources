@@ -7,10 +7,7 @@ examples, and decision frameworks.
 
 ---
 
-## 1. The Big Picture — When to Pick What
-
-> [!NOTE]
-> This is the most common opening question in DE interviews.
+## 0. The Opening Question
 
 **Question:** *"Design a storage strategy for a new data platform. What format do you use for each zone?"*
 
@@ -36,6 +33,17 @@ Silver (clean): Parquet (column pruning, predicate pushdown, Snappy/Zstd)
 Gold (agg):     Parquet (same — optimized for BI tools)
 Kafka messages: Avro (schema evolution, compact binary)
 ```
+
+> [!NOTE]
+> What the interviewer is testing: understanding of access patterns (write-heavy vs read-heavy), schema evolution requirements, compression tradeoffs, and ecosystem compatibility across the data pipeline.
+
+---
+
+## 1. The Big Picture — When to Pick What
+
+See [§0 — The Opening Question](#0-the-opening-question) for the
+format-per-zone decision diagram. This section expands on the reasoning
+behind each choice.
 
 ---
 

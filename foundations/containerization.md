@@ -687,7 +687,48 @@ platform itself.
 
 ---
 
-## 6. Quick Reference — Interview Edition
+## 6. Decision Tree — Whiteboard for Interview
+
+### 6.1 Container Platform Selection for Data Workloads
+
+```mermaid
+flowchart TD
+    Q["Which compute platform for<br/>data pipelines?"]
+    Q --> ORG{"Org already runs K8s<br/>in production?"}
+
+    ORG -->|"Yes"| K8S{"Workload type?"}
+    ORG -->|"No"| MANAGED["Managed service<br/>(EMR, Databricks,<br/>Glue, MWAA)"]
+
+    K8S -->|"Batch Spark ETL"| K8S_SPARK["Spark on K8s<br/>Operator + dynamic<br/>allocation + node pools"]
+    K8S -->|"Streaming Flink"| K8S_FLINK["Flink on K8s<br/>Flink Operator +<br/>statefulset + PVC"]
+    K8S -->|"Orchestration"| K8S_AIRFLOW["Airflow on K8s<br/>KubernetesExecutor<br/>— per-task pods"]
+
+    MANAGED --> PLATFORM{"Platform?"}
+    PLATFORM -->|"AWS"| AWS["EMR on EC2 / EKS<br/>or Glue for simple jobs"]
+    PLATFORM -->|"Multi-cloud"| MULTI["Databricks (consistent<br/>experience across clouds)"]
+```
+
+### 6.2 Spark Driver Placement on K8s
+
+```mermaid
+flowchart TD
+    Q["Where should the Spark<br/>driver run on K8s?"]
+    Q --> MODE{"Deploy mode?"}
+
+    MODE -->|"client (CLI / notebook)"| CLIENT["Driver runs outside cluster<br/>— no K8s pod for driver<br/>Good for dev/interactive"]
+    MODE -->|"cluster (production)"| CLUSTER{"Driver pod resources?"}
+
+    CLUSTER -->|"requests = limits"| G["Guaranteed QoS class<br/>— last to evict<br/>Use for production"]
+    CLUSTER -->|"requests < limits"| B["Burstable QoS<br/>— can be evicted<br/>Avoid for driver pods"]
+
+    CLUSTER --> NODE{"Node type?"}
+    NODE -->|"Dedicated node pool"| N1["Best isolation,<br/>no preemption"]
+    NODE -->|"Shared pool"| N2["Risk of resource<br/>contention with executors"]
+```
+
+---
+
+## 7. Quick Reference — Interview Edition
 
 | Question | Answer |
 |---|---|

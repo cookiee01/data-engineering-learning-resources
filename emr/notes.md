@@ -5,6 +5,37 @@
 
 ---
 
+## 0. The Opening Question
+
+**Question:** *"Your team built a Spark ETL pipeline that runs nightly on EMR. Last night it scaled to 50 nodes but took 3 hours instead of the usual 30 minutes. The bill was $800. What do you check first?"*
+
+```mermaid
+flowchart TD
+    Q["3-hour ETL, 50 nodes, $800 bill"]
+    Q --> M1["1. Check CloudWatch ContainersPending<br/>— was the cluster saturated?"]
+    Q --> M2["2. Check Spark History Server<br/>— stage durations, shuffle bytes"]
+    Q --> M3["3. Check S3 committer config<br/>— using FileOutputCommitter v1<br/>on S3? (rename = copy+delete)"]
+    Q --> M4["4. Check data volume change<br/>— did input size spike?"]
+
+    M1 --> A1["ContainersPending > 0 for 10+ min<br/>→ cluster under-provisioned<br/>or managed scaling stalled"]
+    M2 --> A2["One stage dominates → shuffle<br/>skew or partition issue"]
+    M3 --> A3["10 GB file → 10 GB copy+delete<br/>at commit = huge slowdown"]
+    M4 --> A4["Rebaseline against expected<br/>daily data volume"]
+```
+
+**Answer structure:**
+```
+1. Metric check: CloudWatch ContainersPending — if high, cluster needed more nodes faster
+2. Spark History Server: find the dominating stage, check shuffle read size and skew
+3. S3 committer: if using FileOutputCommitter v1, every file commit copies all data bytes = job cost doubles
+4. Data volume: compare input size against baseline
+```
+
+> [!NOTE]
+> What the interviewer is testing: your debugging methodology, understanding of EMR scaling behavior, YARN container management, S3 committer internals, and cost awareness — all at once.
+
+---
+
 ## 1. What is EMR?
 
 EMR is AWS's managed Hadoop/Spark ecosystem. It provisions EC2 instances, installs your chosen big data applications (Spark, Hive, HBase, Presto/Trino, Flink, Iceberg, Hue, etc.), and manages the cluster lifecycle.
@@ -1296,7 +1327,63 @@ s3-dist-cp \
 
 ---
 
-## 15. Key Interview Answers
+## 15. Decision Trees — Whiteboard for Interview
+
+### 15.1 EMR Deployment Mode
+
+```mermaid
+flowchart TD
+    Q["Which EMR deployment?"]
+    Q --> A{"Team has K8s<br/>expertise + existing<br/>EKS cluster?"}
+
+    A -->|"No"| B{"Workload pattern?"}
+    A -->|"Yes"| C["EMR on EKS<br/>share nodes, namespace<br/>isolation, Spark only"]
+
+    B -->|"Steady-state ETL<br/>>4 hrs, Hive/Presto/HBase"| D["EMR on EC2<br/>Instance Fleets, Managed<br/>Scaling, full app support"]
+    B -->|"Bursty short jobs<br/><1 hr, no ops team"| E["EMR Serverless<br/>per-second billing, no<br/>cluster management"]
+    B -->|"Interactive analytics<br/>notebooks + ad-hoc"| F["EMR on EC2 (persistent)<br/>+ EMR Studio + Managed<br/>Scaling min/max"]
+```
+
+### 15.2 Spot Strategy Decision
+
+```mermaid
+flowchart TD
+    Q["How to use spot instances?"]
+    Q --> ROLE{"Node role?"}
+
+    ROLE -->|"Master"| M["Always on-demand<br/>Master loss = cluster loss"]
+    ROLE -->|"Core"| C{"Using HDFS?"}
+    ROLE -->|"Task"| T["100% spot recommended<br/>— pure compute, zero<br/>data loss risk"]
+
+    C -->|"Yes"| C1["On-demand preferred<br/>Spot cores risk HDFS<br/>data loss on reclaim"]
+    C -->|"No (S3-only)"| C2["Mix: on-demand base +<br/>spot for burst capacity"]
+
+    T --> DIVERSIFY{"Instance diversity?"}
+    DIVERSIFY -->|"5+ types, 3+ families"| D1["70-90% spot feasible"]
+    DIVERSIFY -->|"1-2 types"| D2["Limit to 50% spot<br/>— single AZ capacity<br/>dries up fast"]
+```
+
+### 15.3 S3 Committer Selection
+
+```mermaid
+flowchart TD
+    Q["Which S3 committer?"]
+    Q --> VERSION{"EMR version?"}
+
+    VERSION -->|"EMR 7.x+"| V7["S3 Directory Committer<br/>(open-source, recommended)"]
+    VERSION -->|"EMR 5.x-6.x"| V5{"Using Spark on<br/>EMR only?"}
+
+    V5 -->|"Yes"| M["EMRFS Magic Committer<br/>(deprecated but functional)"]
+    V5 -->|"No (multi-platform)"| D["S3 Directory Committer<br/>(portable across clouds)"]
+
+    V7 --> COMPARE{"partitionBy()?"}
+    COMPARE -->|"Yes"| PART["Use 'partitioned' mode<br/>— per-partition optimization"]
+    COMPARE -->|"No"| DIR["Use 'directory' mode<br/>— all files visible atomically"]
+```
+
+---
+
+## 16. Key Interview Answers
 
 #### "Design a production ETL pipeline using EMR"
 
@@ -1332,7 +1419,7 @@ I default to EMR on EC2 for most use cases because of its simplicity and full ap
 
 ---
 
-## 16. Quick Reference — Interview Edition
+## 17. Quick Reference — Interview Edition
 
 | Question | Short Answer |
 |---|---|
