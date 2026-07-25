@@ -41,6 +41,12 @@ This video covers practical Apache Spark concepts needed for writing, tuning, an
 - Driver constructs logical/physical plans, splits work into stages/tasks, and schedules tasks to executors.
 - Executors run tasks, perform shuffle reads/writes, cache data, and report status/results to driver.
 
+> [!NOTE]
+> End-to-end visual walkthrough: [`diagrams/spark-job-execution.excalidraw`](diagrams/spark-job-execution.excalidraw)
+> (open in Excalidraw). Eight panels: physical architecture, query planning,
+> execution hierarchy, a staged DataFrame example, shuffle anatomy,
+> scheduling/retries, executor JVM memory, and AQE.
+
 ### Deployment Modes
 - Cluster mode: Driver runs inside the cluster.
 - Client mode: Driver runs on the submit machine.
