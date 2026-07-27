@@ -1,9 +1,3 @@
-## Diagram
-
-<img width="1536" height="1024" alt="image" src="https://github.com/user-attachments/assets/363fdc3f-21ec-4399-aefb-4bb9a44b8b41" />
-
-
-
 # Apache Iceberg — Interview Prep Notes
 
 > Format: Alex (learner) ↔ Sam (guide) conversation series designed to build production-grade intuition.
